@@ -74,12 +74,7 @@
           {categoryChain.map((c) => (
             <React.Fragment key={c.id}>
               <i className="ph ph-caret-right text-[10px] text-ink/25" aria-hidden />
-              <LocalizedClientLink
-                href={`/${buildCategoryPath(c)}`}
-                className="hover:text-primary transition-colors"
-              >
-                {c.name}
-              </LocalizedClientLink>
+              <span>{c.name}</span>
             </React.Fragment>
           ))}
 
