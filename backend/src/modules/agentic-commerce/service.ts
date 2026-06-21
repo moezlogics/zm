@@ -1411,11 +1411,68 @@ class AgenticCommerceService extends MedusaService({
       })
     }
 
+    const isGamingQuery = /gaming|game|pubg|play/i.test(q) || specTerms.some(t => /gaming|game|pubg|fps/i.test(t))
+    const isCameraQuery = /camera|photo|lens|pixel/i.test(q) || specTerms.some(t => /camera|photo|lens/i.test(t))
+
     let mapped = rows.map((p: any) => this.mapProductRow(p))
     // Price filters (calculated_amount is in major units).
     if (minPrice != null) mapped = mapped.filter((m) => typeof m.price === "number" && m.price >= minPrice)
     if (maxPrice != null) {
       mapped = mapped.filter((m) => typeof m.price === "number" && m.price <= maxPrice)
+    }
+
+    if (isGamingQuery) {
+      // Exclude low-end cheap devices (under 25k PKR) for gaming requests, unless that's all we have
+      const highEndGaming = mapped.filter((m) => typeof m.price === "number" && m.price >= 25000)
+      if (highEndGaming.length > 0) {
+        mapped = highEndGaming
+      }
+
+      mapped.sort((a, b) => {
+        const getGamingScore = (item: any) => {
+          const rawProduct = rows.find((r) => r.id === item.id)
+          const specs = rawProduct?.metadata?.specs || {}
+          const fps = String(specs.pubg_fps || "").toUpperCase()
+          const hz = String(specs.refresh_rate || "").toUpperCase()
+
+          if (fps.includes("120FPS")) return 100
+          if (fps.includes("90FPS")) return 90
+          if (fps.includes("60FPS")) return 60
+          if (hz.includes("165HZ") || hz.includes("144HZ") || hz.includes("120HZ")) return 50
+          if (fps.includes("50FPS") || fps.includes("40FPS")) return 20
+          return 0
+        }
+        const scoreDiff = getGamingScore(b) - getGamingScore(a)
+        if (scoreDiff !== 0) return scoreDiff
+        return (b.price ?? 0) - (a.price ?? 0) // fallback to price descending
+      })
+    } else if (isCameraQuery) {
+      // Exclude low-end cheap devices (under 25k PKR) for camera requests, unless that's all we have
+      const decentCamera = mapped.filter((m) => typeof m.price === "number" && m.price >= 25000)
+      if (decentCamera.length > 0) {
+        mapped = decentCamera
+      }
+
+      mapped.sort((a, b) => {
+        const getCameraScore = (item: any) => {
+          const rawProduct = rows.find((r) => r.id === item.id)
+          const specs = rawProduct?.metadata?.specs || {}
+          const mainCam = String(specs.camera_main || "").toUpperCase()
+          const features = String(specs.camera_features || "").toUpperCase()
+
+          let score = 0
+          if (features.includes("LEICA") || features.includes("ZEISS") || features.includes("HASSELBLAD")) score += 100
+          if (features.includes("OIS")) score += 50
+          if (mainCam.includes("200 MP") || mainCam.includes("200MP")) score += 40
+          if (mainCam.includes("108 MP") || mainCam.includes("108MP")) score += 30
+          if (mainCam.includes("50 MP") || mainCam.includes("50MP")) score += 20
+          return score
+        }
+        const scoreDiff = getCameraScore(b) - getCameraScore(a)
+        if (scoreDiff !== 0) return scoreDiff
+        return (b.price ?? 0) - (a.price ?? 0) // fallback to price descending
+      })
+    } else if (maxPrice != null) {
       // Sort DESCENDING so the most capable premium options close to the maximum budget appear first
       mapped.sort((a, b) => (b.price ?? 0) - (a.price ?? 0))
     }
