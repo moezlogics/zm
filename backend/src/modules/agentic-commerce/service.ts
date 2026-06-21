@@ -729,6 +729,41 @@ class AgenticCommerceService extends MedusaService({
         "Sorry, the AI assistant is unavailable right now. Please try again in a moment."
     }
 
+    if (reply && assistantMetadata.products && Array.isArray(assistantMetadata.products)) {
+      const lowerReply = reply.toLowerCase()
+      const filtered = assistantMetadata.products.filter((p: any) => {
+        const title = (p.title || "").toLowerCase()
+        const handle = (p.handle || "").toLowerCase()
+
+        // Clean brand name from title to check for model name
+        const cleanTitle = title.replace(/^(apple|samsung|xiaomi|redmi|infinix|tecno|vivo|oppo|realme|oneplus)\s+/i, "").trim()
+        const cleanTitleWords = cleanTitle.split(/\s+/).filter(w => w.length >= 2)
+
+        const isCleanTitleMentioned = cleanTitle.length > 2 && lowerReply.includes(cleanTitle)
+        const areWordsMentioned = cleanTitleWords.length > 0 && cleanTitleWords.every(word => lowerReply.includes(word))
+        const isHandleMentioned = lowerReply.includes(handle)
+
+        return isCleanTitleMentioned || areWordsMentioned || isHandleMentioned
+      })
+
+      // Remove duplicate products by ID in case they were appended multiple times
+      const uniqueProducts: any[] = []
+      const seenIds = new Set<string>()
+      const listToProcess = filtered.length > 0 ? filtered : assistantMetadata.products
+      for (const p of listToProcess) {
+        if (p?.id && !seenIds.has(p.id)) {
+          seenIds.add(p.id)
+          uniqueProducts.push(p)
+        }
+      }
+
+      if (filtered.length > 0) {
+        assistantMetadata.products = uniqueProducts
+      } else {
+        assistantMetadata.products = uniqueProducts.slice(0, 4)
+      }
+    }
+
     const [assistantMessage] = await (this as any).createChatMessages([
       {
         session_id: sessionId,
