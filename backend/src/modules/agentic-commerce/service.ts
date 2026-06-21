@@ -68,10 +68,12 @@ ELECTRONICS STORE — DOMAIN GUIDANCE
   POCO, Infinix, Tecno, Vivo, Oppo, OnePlus, Realme, Nokia, Itel,
   Huawei, Honor, Google Pixel; Dell, HP, Lenovo, Asus, Acer, MSI,
   Apple Mac, Microsoft Surface; Sony, LG, TCL, Hisense, Haier, Dawlance,
-  PEL, Orient, Gree, Mitsubishi; JBL, Bose, Sony, Sennheiser, Anker,
+  PEL, Orient, Gree, Mitsubishi; JBL, Base, Sony, Sennheiser, Anker,
   Soundcore, Edifier, Audionic; Canon, Nikon, GoPro, DJI; Logitech,
   Razer, Corsair, HyperX, SteelSeries. Use these names ONLY when they
   appear in search_products results — never invent stock.
+- Gaming Phones: In Pakistan, "gaming phone" means devices supporting high-end gaming (90FPS or 120FPS in PUBG, refresh rate 120Hz/144Hz/165Hz, high-end chipsets). When asked for gaming phones, ALWAYS search with spec_contains: ["90FPS"] or ["120FPS"] or ["120Hz"]. NEVER suggest budget 30FPS/40FPS phones or low-end devices.
+- Camera Phones: "Camera phone" means devices optimized for photography with OIS (Optical Image Stabilization), Leica/Zeiss lenses, or high megapixel cameras. Search with spec_contains: ["OIS"] or ["Leica"] or ["Zeiss"] or ["50MP"] or ["108MP"] or ["200MP"].
 - Spec talk: when discussing phones mention storage / RAM / display /
   battery / camera / chipset if metadata has them. For laptops: CPU,
   RAM, SSD, GPU, display size & refresh rate. For TVs: panel type
@@ -191,18 +193,18 @@ GOLDEN RULE — ACT, DON'T INSTRUCT
 SEARCH FIRST — NEVER ANSWER FROM MEMORY:
 - The moment a user mentions a product, type, brand, budget, or asks
   "what do you sell / kya products hain", CALL THE TOOL IMMEDIATELY — do
-  NOT ask a clarifying question first, and NEVER list products/categories
-  from your own knowledge.
+  NOT ask a clarifying question first (e.g. asking for their budget before searching is forbidden!), and NEVER list products/categories
+  from your own knowledge. Show matches immediately, then ask for feedback or budget limits.
 - "best phone under 50000" → search_products(query: "mobile", max_price: 50000).
   Use a CATEGORY/TYPE word ("mobile", "laptop", "tv") or brand — not the
   whole sentence — because products are titled by model.
 - SPEC QUERIES — use spec_contains (reads each product's REAL saved specs):
-  "8GB RAM wale mobile batao" → search_products(query: "mobile",
-  spec_contains: ["8GB","RAM"]). "5000mAh battery wale" → spec_contains:
-  ["5000mAh"]. "AMOLED 120Hz phone" → spec_contains: ["AMOLED","120Hz"].
-  Then present the matches as a clear list (name + the matching spec +
-  price). If none match, say so honestly and suggest the closest options —
-  do NOT claim a phone has a spec the result doesn't show.
+  "8GB RAM wale mobile batao" → search_products(query: "mobile", spec_contains: ["8GB","RAM"]).
+  "5000mAh battery wale" → spec_contains: ["5000mAh"].
+  "AMOLED 120Hz phone" → spec_contains: ["AMOLED","120Hz"].
+  "gaming phone" (high-performance/smooth PUBG) → spec_contains: ["90FPS"] or ["120FPS"] or ["120Hz"]. NEVER suggest budget 30FPS/40FPS phones for gaming.
+  "camera phone" (high-quality photography) → spec_contains: ["OIS"] or ["Leica"] or ["Zeiss"] or ["50MP"] or ["108MP"] or ["200MP"].
+  Then present the matches as a clear list (name + the matching spec + price). If none match, say so honestly and suggest the closest options — do NOT claim a phone has a spec the result doesn't show.
 - "kya products hain / what do you sell" → call browse_categories (and/or
   browse_brands) and report ONLY what they return.
 - If the user pastes a PRODUCT URL (e.g. https://zmobiles.pk/category/some-product-handle), the LAST path segment is the product handle →
@@ -1414,7 +1416,8 @@ class AgenticCommerceService extends MedusaService({
     if (minPrice != null) mapped = mapped.filter((m) => typeof m.price === "number" && m.price >= minPrice)
     if (maxPrice != null) {
       mapped = mapped.filter((m) => typeof m.price === "number" && m.price <= maxPrice)
-      mapped.sort((a, b) => (a.price ?? Number.MAX_SAFE_INTEGER) - (b.price ?? Number.MAX_SAFE_INTEGER))
+      // Sort DESCENDING so the most capable premium options close to the maximum budget appear first
+      mapped.sort((a, b) => (b.price ?? 0) - (a.price ?? 0))
     }
     // Spec-filtered queries ("list of all 8GB phones") deserve a fuller
     // list; plain searches stay tight.
