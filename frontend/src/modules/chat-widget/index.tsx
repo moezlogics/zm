@@ -802,17 +802,13 @@ export default function ChatWidget({
             }
             setOpen((v) => !v)
           }}
-          className="relative w-14 h-14 rounded-full flex items-center justify-center shadow-xl hover:shadow-2xl active:scale-90 transition-all overflow-hidden"
+          className="relative w-14 h-14 rounded-full flex items-center justify-center shadow-xl hover:shadow-2xl active:scale-90 transition-all"
           style={{
             background: "var(--hex-primary)",
+            color: "var(--hex-primary-fg)",
           }}
         >
-          <img
-            src={ZIZU_AVATAR}
-            alt="Zizu"
-            className="w-full h-full object-cover rounded-full"
-            draggable={false}
-          />
+          <i className="ph-fill ph-headset text-[22px]" aria-hidden />
           {hasUnread && !open && (
             <span
               className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2"
