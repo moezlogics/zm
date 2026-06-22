@@ -24,7 +24,7 @@ export default function WhatsAppChannelWidget() {
       setHasClosed(false)
       const timer = setTimeout(() => {
         setShowBubble(true)
-      }, 3500) // Delay showing the bubble for premium feel
+      }, 13000) // Delay showing the bubble so it appears after the chatbot teaser finishes (12.5s)
       return () => clearTimeout(timer)
     }
   }, [hide])
@@ -40,14 +40,15 @@ export default function WhatsAppChannelWidget() {
   }
 
   const channelUrl = "https://whatsapp.com/channel/0029Vb8N78aAzNbxxZXzdo10"
+  const ZIZU_AVATAR = "https://cdn.zmobiles.pk/uploads/2026/06/7551268b-d645-4cbc-a802-ae3d94f96df4-aoFCInV_.webp"
 
   return (
     <>
-      <div className="fixed z-[55] flex flex-col items-end gap-2.5 transition-all duration-300 bottom-[64px] right-4 sm:bottom-6 sm:right-[92px]">
+      <div className="fixed z-[55] flex flex-col items-end gap-2.5 sm:gap-4 transition-all duration-300 bottom-[64px] right-4 sm:bottom-6 sm:right-[92px]">
         {/* Teaser Message Bubble */}
         {showBubble && !hasClosed && (
           <div
-            className="flex items-center gap-3 shadow-[0_12px_36px_rgba(0,0,0,0.12)] px-4 py-3 rounded-2xl max-w-[280px] sm:max-w-xs relative border border-line bg-surface/90 backdrop-blur-md"
+            className="flex items-center gap-3 shadow-[0_12px_32px_rgba(0,0,0,0.15)] px-3.5 py-3 rounded-2xl max-w-[280px] sm:max-w-xs relative border border-line bg-surface border-l-4 border-l-[#25D366]"
             style={{
               animation: "waBubbleIn 500ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
               transformOrigin: "bottom right",
@@ -56,23 +57,27 @@ export default function WhatsAppChannelWidget() {
             {/* Pointer arrow */}
             <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-surface border-r border-b border-line rotate-45" />
 
+            {/* Zizu Avatar */}
+            <img
+              src={ZIZU_AVATAR}
+              alt="Zizu"
+              className="w-7.5 h-7.5 rounded-full object-cover shrink-0"
+              style={{ border: "2px solid #25D366" }}
+            />
+
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold text-ink flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse" />
-                Zizu WhatsApp Channel
-              </p>
-              <p className="text-xs text-ink/75 leading-relaxed mt-1 font-medium">
-                Salaam! Follow me on my WhatsApp Channel for exclusive updates & deals! 💚
-              </p>
+              <span className="text-xs font-semibold text-ink leading-snug block">
+                Hi! Follow Zizu on WhatsApp for exclusive deals & price alerts! 💚
+              </span>
             </div>
 
             <button
               type="button"
               onClick={handleCloseBubble}
-              className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center transition-all active:scale-90 opacity-40 hover:opacity-100 hover:bg-neutral-200/50"
+              className="w-5.5 h-5.5 shrink-0 rounded-full flex items-center justify-center transition-all active:scale-90 opacity-40 hover:opacity-100 hover:bg-neutral-200/50"
               aria-label="Close message"
             >
-              <i className="ph-bold ph-x text-[10px]" />
+              <i className="ph-bold ph-x text-[9px]" />
             </button>
           </div>
         )}
