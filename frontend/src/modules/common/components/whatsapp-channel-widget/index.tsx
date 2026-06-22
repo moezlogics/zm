@@ -18,16 +18,18 @@ export default function WhatsAppChannelWidget() {
   useEffect(() => {
     if (hide) return
 
-    // Check localStorage to see if the user previously closed the teaser
-    const closed = localStorage.getItem("zizu-wa-channel-closed")
-    if (!closed) {
-      setHasClosed(false)
-      const timer = setTimeout(() => {
-        setShowBubble(true)
-      }, 13000) // Delay showing the bubble so it appears after the chatbot teaser finishes (12.5s)
-      return () => clearTimeout(timer)
-    }
-  }, [hide])
+    setHasClosed(false)
+    setShowBubble(false)
+
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 640
+    const delay = isMobile ? 4000 : 13000
+
+    const timer = setTimeout(() => {
+      setShowBubble(true)
+    }, delay)
+
+    return () => clearTimeout(timer)
+  }, [hide, pathname])
 
   if (hide) return null
 
@@ -36,7 +38,6 @@ export default function WhatsAppChannelWidget() {
     e.stopPropagation()
     setShowBubble(false)
     setHasClosed(true)
-    localStorage.setItem("zizu-wa-channel-closed", "true")
   }
 
   const channelUrl = "https://whatsapp.com/channel/0029Vb8N78aAzNbxxZXzdo10"
