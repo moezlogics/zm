@@ -3,30 +3,19 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   try {
     const manager = req.scope.resolve("__pg_connection__")
-    const body = req.body as { product_ids?: string[] }
-    const productIds = body?.product_ids
     
-    // Perform update directly in the database for zero server/memory overhead
-    if (Array.isArray(productIds) && productIds.length > 0) {
-      await manager.raw(`
-        UPDATE product 
-        SET created_at = NOW(), 
-            updated_at = NOW()
-        WHERE id = ANY(?::text[])
-      `, [productIds])
-    } else {
-      await manager.raw(`
-        UPDATE product 
-        SET created_at = NOW(), 
-            updated_at = NOW()
-      `)
-    }
+    // Perform bulk update directly in the database for zero server/memory overhead
+    await manager.raw(`
+      UPDATE product 
+      SET created_at = NOW(), 
+          updated_at = NOW()
+    `)
 
     // Clear storefront cache if configured
     const storefrontUrl = process.env.STOREFRONT_URL
     const secret = process.env.REVALIDATE_SECRET
     let revalidated = false
-    let revalidateError = null
+    let revalidateError: string | null = null
 
     if (storefrontUrl && secret) {
       try {
@@ -52,14 +41,17 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       }
     }
 
-    res.status(200).json({ 
-      success: true, 
-      message: Array.isArray(productIds) && productIds.length > 0 
-        ? `${productIds.length} product timestamps successfully updated.`
-        : "All product timestamps successfully updated to current time.",
+    const responseBody: any = {
+      success: true,
+      message: "All product timestamps successfully updated to current time.",
       revalidated,
-      ...(revalidateError && { revalidateError })
-    })
+    }
+
+    if (revalidateError) {
+      responseBody.revalidateError = revalidateError
+    }
+
+    res.status(200).json(responseBody)
   } catch (error: any) {
     console.error("[products-update-dates] failed:", error)
     res.status(500).json({ success: false, error: error.message || "Failed to update product timestamps." })
