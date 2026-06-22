@@ -4,7 +4,7 @@ cd .deploy-source
 git pull origin main
 cd ..
 
-echo "=== Syncing files to Root ==="
+echo "=== Syncing files to backend/ ==="
 rsync -av --delete \
   --exclude='.deploy-source/' \
   --exclude='.git/' \
@@ -15,6 +15,6 @@ rsync -av --delete \
   --exclude='dist/' \
   --exclude='ecosystem.config.js' \
   --exclude='logs/' \
-  .deploy-source/backend/ .
+  .deploy-source/backend/ backend/
 
 echo "=== Backend Updated Successfully ==="

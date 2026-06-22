@@ -289,5 +289,5 @@ export default function DateUpdatePage() {
 
 export const config = defineRouteConfig({
   label: "Date Update",
-  icon: Calendar,
+  icon: ArrowPath,
 })
