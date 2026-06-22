@@ -12,7 +12,7 @@ import { buildTheme, getFontHref } from "@lib/util/theme"
 import { CartDrawerProvider } from "@lib/context/cart-drawer-context"
 import { SiteSettingsProvider } from "@lib/context/site-settings-context"
 import { retrieveCustomer } from "@lib/data/customer"
-import { ClientPushPrompt, ClientChatWidget, ClientSmoothScroll } from "./client-wrappers"
+import { ClientPushPrompt, ClientChatWidget, ClientSmoothScroll, ClientWhatsappChannelWidget } from "./client-wrappers"
 
 // Anvogue body font, wired to the CSS variable used by tailwind.config.js
 // and globals.css so `font-sans` resolves to Instrument Sans everywhere.
@@ -199,6 +199,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
           whatsappNumber={settings.whatsapp_number || null}
           whatsappChatbotEnabled={settings.whatsapp_chatbot_enabled !== "false"}
         />
+        <ClientWhatsappChannelWidget />
       </body>
     </html>
   )
