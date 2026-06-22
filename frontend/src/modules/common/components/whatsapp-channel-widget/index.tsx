@@ -44,7 +44,7 @@ export default function WhatsAppChannelWidget() {
 
   return (
     <>
-      <div className="fixed z-[55] flex flex-col items-end gap-2.5 sm:gap-4 transition-all duration-300 bottom-[64px] right-4 sm:bottom-6 sm:right-[92px]">
+      <div className="fixed z-[55] flex flex-col items-end gap-2.5 sm:gap-4 transition-all duration-300 bottom-[64px] right-[80px] sm:bottom-6 sm:right-[92px]">
         {/* Teaser Message Bubble */}
         {showBubble && !hasClosed && (
           <div

@@ -737,7 +737,7 @@ export default function ChatWidget({
       {/* Teaser Message Bubble */}
       {!open && showTeaser && (
         <div
-          className="hidden small:flex fixed bottom-24 right-6 z-[59] items-center gap-2.5 shadow-xl px-4 py-2.5 rounded-2xl max-w-xs"
+          className="fixed flex bottom-[128px] right-4 sm:bottom-24 sm:right-6 z-[59] items-center gap-2.5 shadow-xl px-4 py-2.5 rounded-2xl max-w-xs"
           style={{
             background: "var(--hex-bg)",
             border: "1px solid var(--hex-border)",
@@ -772,10 +772,9 @@ export default function ChatWidget({
         </div>
       )}
 
-      {/* Desktop Floating Trigger Button */}
-      {/* Desktop Floating Trigger — Zizu Avatar with Glow Pulse */}
+      {/* Floating Trigger Button — Mobile and Desktop */}
       <div
-        className={`hidden small:flex fixed bottom-6 right-6 z-[59] items-center justify-center cursor-move ${
+        className={`fixed flex items-center justify-center cursor-move bottom-[64px] right-4 sm:bottom-6 sm:right-6 z-[59] ${
           open ? "opacity-0 pointer-events-none scale-90" : "opacity-100 scale-100"
         }`}
         style={{
