@@ -46,6 +46,8 @@ npm install --no-audit --no-fund
 echo "[4/7] Compiling Medusa typescript files..."
 # Set memory limit to prevent VPS OOM (Out Of Memory) crash
 export NODE_OPTIONS="--max-old-space-size=1536"
+# Force admin dashboard compilation during build
+export MEDUSA_ADMIN_DISABLE=false
 npm run build
 
 # 5. Run Database Migrations
@@ -67,6 +69,13 @@ if [ -d "$ACTIVE_DIR/.medusa/server" ]; then
   mv "$ACTIVE_DIR/.medusa/server" "$ACTIVE_DIR/.medusa/server_old"
 fi
 mv "$BUILD_DIR/.medusa/server" "$ACTIVE_DIR/.medusa/server"
+
+# Automatically copy compiled admin UI static files to active admin-static folder
+if [ -d "$ACTIVE_DIR/.medusa/server/public/admin" ]; then
+  echo "Copying compiled admin panel files to admin-static..."
+  mkdir -p "$ACTIVE_DIR/admin-static"
+  cp -rf "$ACTIVE_DIR/.medusa/server/public/admin/"* "$ACTIVE_DIR/admin-static/"
+fi
 
 # Sync other configurations/source files in case they were updated
 if command -v rsync >/dev/null 2>&1; then
