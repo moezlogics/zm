@@ -62,7 +62,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 export default defineConfig({
   admin: {
     path: '/app',
-    disable: process.env.MEDUSA_ADMIN_DISABLE === 'true', 
+    disable: process.env.NODE_ENV === 'production', 
     vite: () => {
       return {
         server: {
