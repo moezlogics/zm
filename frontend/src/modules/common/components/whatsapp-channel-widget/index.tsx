@@ -62,7 +62,7 @@ export default function WhatsAppChannelWidget() {
             <img
               src={ZIZU_AVATAR}
               alt="Zizu"
-              className="w-7.5 h-7.5 rounded-full object-cover shrink-0"
+              className="w-8 h-8 rounded-full object-cover shrink-0"
               style={{ border: "2px solid #25D366" }}
             />
 
@@ -75,10 +75,10 @@ export default function WhatsAppChannelWidget() {
             <button
               type="button"
               onClick={handleCloseBubble}
-              className="w-5.5 h-5.5 shrink-0 rounded-full flex items-center justify-center transition-all active:scale-90 opacity-40 hover:opacity-100 hover:bg-neutral-200/50"
+              className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center transition-all active:scale-90 opacity-40 hover:opacity-100 hover:bg-neutral-200/50"
               aria-label="Close message"
             >
-              <i className="ph-bold ph-x text-[9px]" />
+              <i className="ph-bold ph-x text-[10px]" />
             </button>
           </div>
         )}
