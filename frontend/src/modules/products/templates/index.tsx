@@ -218,7 +218,7 @@ const ProductTemplate = async ({
             {title}
           </h4>
         </div>
-        <ul className="grid grid-cols-2 small:grid-cols-4 gap-2 md:gap-4">
+        <ul className="grid grid-cols-2 gap-2 md:gap-4">
           {productsList.map((p) => (
             <li key={p.id}>
               <ProductPreview region={region} product={p} aspectClass={aspectRatioClass} />
