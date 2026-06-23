@@ -17,4 +17,12 @@ rsync -av --delete \
   --exclude='logs/' \
   .deploy-source/backend/ backend/
 
+echo "=== Running Deploy script ==="
+if [ -f "backend/deploy-backend.sh" ]; then
+  chmod +x backend/deploy-backend.sh
+  cd backend && ./deploy-backend.sh && cd ..
+else
+  echo "No deploy-backend.sh found. Please build manually or restart PM2."
+fi
+
 echo "=== Backend Updated Successfully ==="
