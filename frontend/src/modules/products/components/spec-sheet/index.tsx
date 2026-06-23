@@ -146,16 +146,26 @@ export default function SpecSheet({
                   ))}
                 </dl>
               </section>
+
+              {idx === budgetIndex && similarBudgetSlot && (
+                <div className="col-span-1 md:col-span-2 my-2">
+                  {similarBudgetSlot}
+                </div>
+              )}
+
+              {idx === specsIndex && similarSpecsSlot && (
+                <div className="col-span-1 md:col-span-2 my-2">
+                  {similarSpecsSlot}
+                </div>
+              )}
+
+              {idx === brandIndex && sameBrandSlot && (
+                <div className="col-span-1 md:col-span-2 my-2">
+                  {sameBrandSlot}
+                </div>
+              )}
             </React.Fragment>
           ))}
-        </div>
-      )}
-
-      {(similarBudgetSlot || similarSpecsSlot || sameBrandSlot) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-          {similarBudgetSlot && <div className="col-span-1">{similarBudgetSlot}</div>}
-          {similarSpecsSlot && <div className="col-span-1">{similarSpecsSlot}</div>}
-          {sameBrandSlot && <div className="col-span-1">{sameBrandSlot}</div>}
         </div>
       )}
 
