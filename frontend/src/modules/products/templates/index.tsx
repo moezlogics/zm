@@ -178,16 +178,16 @@ const ProductTemplate = async ({
     }
   }
 
-  const similarBudget = getSimilarBudgetProducts(product, allProducts, 4)
-  const similarSpecs = getSimilarSpecsProducts(product, allProducts, 4)
+  const similarBudget = getSimilarBudgetProducts(product, allProducts, 8)
+  const similarSpecs = getSimilarSpecsProducts(product, allProducts, 8)
 
-  const brandHandle = brand?.handle || product.metadata?.brand
+  const brandHandle = (brand?.handle || product.metadata?.brand) as string | undefined
   let brandProducts: any[] = []
   if (brandHandle) {
     try {
       const brandData = await getBrandByHandle(brandHandle).catch(() => null)
       if (brandData && brandData.product_ids?.length > 0) {
-        const targetIds = brandData.product_ids.filter((id) => id !== product.id).slice(0, 4)
+        const targetIds = brandData.product_ids.filter((id) => id !== product.id).slice(0, 8)
         if (targetIds.length > 0) {
           const brandProductsResult = await listProducts({
             queryParams: {
@@ -206,7 +206,7 @@ const ProductTemplate = async ({
 
   const sameBrand = brandProducts.length > 0
     ? brandProducts
-    : getSameBrandProducts(product, allProducts, brandHandle, 4)
+    : getSameBrandProducts(product, allProducts, brandHandle, 8)
 
   const renderInlineSection = (title: string, productsList: any[]) => {
     if (!productsList || productsList.length === 0) return null
@@ -218,9 +218,9 @@ const ProductTemplate = async ({
             {title}
           </h4>
         </div>
-        <ul className="grid grid-cols-2 small:grid-cols-4 gap-2 md:gap-4">
-          {productsList.map((p) => (
-            <li key={p.id}>
+        <ul className="grid grid-cols-2 small:grid-cols-4 medium:grid-cols-6 large:grid-cols-8 gap-2 md:gap-4">
+          {productsList.map((p, index) => (
+            <li key={p.id} className={index >= 4 ? "hidden small:block" : ""}>
               <ProductPreview region={region} product={p} aspectClass={aspectRatioClass} />
             </li>
           ))}
