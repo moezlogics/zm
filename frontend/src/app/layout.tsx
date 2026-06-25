@@ -173,6 +173,11 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
         />
         <GoogleAnalytics measurementId={settings.google_analytics_id} />
         <MetaPixel pixelId={settings.meta_pixel_id} />
+        {/* Warm up the AdSense connections early so ad units fill faster
+            (more viewable impressions = more revenue). */}
+        <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossOrigin="" />
+        <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
         <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8616277671572207"

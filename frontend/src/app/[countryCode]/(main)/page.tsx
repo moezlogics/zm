@@ -2,7 +2,6 @@ import { Metadata } from "next"
 import { Suspense } from "react"
 
 import { GridSkeleton } from "@modules/skeletons/templates/page-skeletons"
-import { listCollections } from "@lib/data/collections"
 import { getRegion } from "@lib/data/regions"
 import { getSiteSettings } from "@lib/data/site-settings"
 import { parseCategoryBar } from "@lib/util/category-bar"
@@ -66,19 +65,14 @@ export default async function Home(props: {
   const { countryCode } = await props.params
 
   // Parallelize independent fetches so the homepage TTFB stays tight.
-  const [region, collectionsRes, banners, settings, brands] = await Promise.all([
+  const [region, banners, settings, brands] = await Promise.all([
     getRegion(countryCode),
-    listCollections({ fields: "id, handle, title" }),
     listBanners(),
     getSiteSettings(),
     listBrands().catch(() => []),
   ])
 
   if (!region) return null
-  const collections = collectionsRes?.collections || []
-
-  // Show up to 2 featured collections on the homepage to keep it scannable.
-  const featured = collections.slice(0, 2)
 
   const brandItems = (brands || [])
     .filter((b) => b.is_active)

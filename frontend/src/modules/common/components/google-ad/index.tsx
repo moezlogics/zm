@@ -3,56 +3,98 @@
 import { useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 
+type GoogleAdProps = {
+  /** AdSense ad-unit slot id. Defaults to the site's responsive unit. */
+  slot?: string
+  /** Reserved height (px) so the slot holds space before the ad fills. */
+  minHeight?: number
+  /** Extra classes on the wrapper (spacing, etc.). */
+  className?: string
+}
+
+const AD_CLIENT = "ca-pub-8616277671572207"
+const DEFAULT_SLOT = "6428686902"
+
 /**
- * GoogleAd component integrates Google AdSense responsive ad slots.
- * Refactored to prevent duplicate initialization errors and support
- * smooth reloading across Next.js client-side route transitions.
+ * Google AdSense slot — reliable on Next.js App Router (SSR + SPA nav).
+ *
+ * WHY THIS REWRITE — the old version did:
+ *   const adsbygoogle = window.adsbygoogle || []
+ *   adsbygoogle.push({})
+ * When the AdSense loader hadn't defined `window.adsbygoogle` yet (slow
+ * network, or before the afterInteractive script ran), that pushed into a
+ * THROWAWAY local array AdSense never reads → the ad silently never loaded.
+ * That is the "ads load hi nahi hote → no impressions → no clicks → no
+ * revenue" bug.
+ *
+ * Fixes:
+ *  1. Assign back to window: `(window.adsbygoogle = window.adsbygoogle || []).push({})`
+ *     so the request reaches AdSense even before the loader finishes (it
+ *     drains the queued pushes once it loads).
+ *  2. Push EXACTLY ONCE per slot (ref guard) → no "All ins elements already
+ *     have ads" duplicate-init errors.
+ *  3. Wait until the <ins> actually has width — AdSense permanently skips a
+ *     0-width slot (availableWidth=0 → blank forever) — and retry until the
+ *     loader is ready.
+ *  4. Remount per route (`key={pathname}`) so a fresh ad fills on every
+ *     client-side navigation, not just the first page.
  */
-export default function GoogleAd() {
+export default function GoogleAd({
+  slot = DEFAULT_SLOT,
+  minHeight = 100,
+  className = "",
+}: GoogleAdProps) {
   const pathname = usePathname()
-  const initialized = useRef(false)
+  const insRef = useRef<HTMLModElement | null>(null)
+  const pushed = useRef(false)
 
   useEffect(() => {
-    // Reset the local initialization tracker for this mount cycle
-    initialized.current = false
+    pushed.current = false
+    let tries = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
 
-    // Wait for the Next.js page transition to settle and the DOM to paint
-    const timer = setTimeout(() => {
-      if (typeof window !== "undefined" && !initialized.current) {
-        try {
-          const adsbygoogle = (window as any).adsbygoogle || []
-          
-          // Verify if there are uninitialized ad slots in the DOM
-          // before pushing to prevent Google AdSense duplication errors.
-          const uninitializedAds = document.querySelectorAll(
-            'ins.adsbygoogle:not([data-adsbygoogle-status="done"])'
-          )
-          
-          if (uninitializedAds.length > 0) {
-            adsbygoogle.push({})
-            initialized.current = true
-          }
-        } catch (err) {
-          console.error("AdSense push error:", err)
-        }
+    const tryFill = () => {
+      const ins = insRef.current
+      if (!ins || pushed.current) return
+      // Already filled (e.g. fast remount) → nothing to do.
+      if (ins.getAttribute("data-adsbygoogle-status") === "done") {
+        pushed.current = true
+        return
       }
-    }, 100)
+      // AdSense refuses to fill a 0-width slot → wait for layout, then retry.
+      if (ins.getBoundingClientRect().width === 0) {
+        if (tries++ < 25) timer = setTimeout(tryFill, 150)
+        return
+      }
+      try {
+        const w = window as any
+        ;(w.adsbygoogle = w.adsbygoogle || []).push({})
+        pushed.current = true
+      } catch {
+        // Loader not ready yet / transient → retry briefly.
+        if (tries++ < 25) timer = setTimeout(tryFill, 200)
+      }
+    }
 
+    // Let the new route paint first, then fill.
+    timer = setTimeout(tryFill, 0)
     return () => {
-      clearTimeout(timer)
+      if (timer) clearTimeout(timer)
     }
   }, [pathname])
 
   return (
     <div
       key={pathname}
-      className="w-full my-6 flex justify-center items-center overflow-hidden min-h-[100px] select-none"
+      className={`w-full my-6 flex justify-center items-center ${className}`}
+      style={{ minHeight }}
     >
       <ins
+        ref={insRef}
         className="adsbygoogle"
-        style={{ display: "block", width: "100%", minHeight: "100px" }}
-        data-ad-client="ca-pub-8616277671572207"
-        data-ad-slot="6428686902"
+        style={{ display: "block", width: "100%", minHeight }}
+        data-ad-client={AD_CLIENT}
+        data-ad-slot={slot}
         data-ad-format="auto"
         data-full-width-responsive="true"
       />
