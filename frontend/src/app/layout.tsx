@@ -5,6 +5,7 @@ import "styles/globals.css"
 import GoogleAnalytics from "@modules/analytics/google-analytics"
 import MetaPixel from "@modules/analytics/meta-pixel"
 import CustomHeadCode from "@modules/analytics/custom-head-code"
+import Script from "next/script"
 import BusinessJsonLd from "@modules/seo/business-json-ld"
 import SiteJsonLd from "@modules/seo/site-json-ld"
 import { getSiteSettings, resolveProductCardAspectClass } from "@lib/data/site-settings"
@@ -172,6 +173,12 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
         />
         <GoogleAnalytics measurementId={settings.google_analytics_id} />
         <MetaPixel pixelId={settings.meta_pixel_id} />
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8616277671572207"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
         {/* LocalBusiness JSON-LD — emits GroceryStore / Pharmacy / Store
             schema based on the admin-configured business type. */}
         <SiteJsonLd settings={settings} />
