@@ -76,12 +76,14 @@ type Form = {
   filter_customers_only: boolean
 }
 
+const DEFAULT_ACTION_URL = "https://zmobiles.pk/"
+
 const EMPTY_FORM: Form = {
   title: "",
   body: "",
   icon_url: "",
   image_url: "",
-  action_url: "",
+  action_url: DEFAULT_ACTION_URL,
   filter_cities: [],
   filter_states: [],
   filter_countries: [],
@@ -91,6 +93,7 @@ const EMPTY_FORM: Form = {
   filter_genders: [],
   filter_customers_only: false,
 }
+
 
 async function fetchCampaigns(): Promise<{ campaigns: Campaign[] }> {
   const res = await fetch("/admin/push-campaigns", { credentials: "include" })
@@ -362,14 +365,15 @@ const Page = () => {
 
               <Field label="Action URL">
                 <Input
-                  placeholder="/collections/new-arrivals"
+                  placeholder="https://zmobiles.pk/collections/new-arrivals"
                   value={form.action_url}
                   onChange={(e) => setForm({ ...form, action_url: e.target.value })}
                 />
                 <p style={adminHelpText}>
-                  Where the user goes when the notification is clicked. Defaults to the homepage.
+                  Where the user goes when the notification is clicked. Enter a complete URL (e.g. internal pages like https://zmobiles.pk/collections/new-arrivals or external sites like https://google.com).
                 </p>
               </Field>
+
             </div>
           </div>
 
