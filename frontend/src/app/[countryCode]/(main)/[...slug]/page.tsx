@@ -306,6 +306,7 @@ export default async function SlugPage(props: Props) {
     if (!region) notFound()
 
     const images = getImagesForVariant(pricedProduct, searchParams.v_id)
+    const primaryCategory = pricedProduct.categories?.[0]
     const categoryChain = buildCategoryChain(primaryCategory)
 
     const brandChain = brand
