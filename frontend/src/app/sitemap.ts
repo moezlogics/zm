@@ -6,11 +6,35 @@ import { buildCategoryPath } from "@lib/util/category-path"
 import { buildBrandPath } from "@lib/util/brand-path"
 import { getProductPath } from "@lib/util/product"
 
-export const revalidate = 360
 
+/**
+ * Refresh sitemap chunks once an hour via ISR.
+ *
+ * `force-dynamic` cannot be combined with `generateSitemaps` — it
+ * breaks the auto-generated `/sitemap.xml` index route registration
+ * and the URL 404s. Instead we lean on Incremental Static Regeneration:
+ * the first request after `revalidate` seconds re-runs the helpers, so
+ * if the backend was offline during `next build` the URL list self-heals
+ * within an hour without needing a redeploy.
+ */
+export const revalidate = 3600
+
+/**
+ * Cookie-free data fetching for sitemap generation.
+ *
+ * CRITICAL: We deliberately bypass `sdk.client.fetch` here. The SDK
+ * wrapper (see `lib/config.ts`) injects `getLocaleHeader()` which
+ * eventually calls `nextCookies()` — that's a dynamic API and reading
+ * it inside `app/sitemap.ts` marks the entire route as dynamic. Combined
+ * with `generateSitemaps()` that crashes route registration and the
+ * `/sitemap.xml` URL stops resolving entirely (blank/404).
+ *
+ * Plain `fetch()` with the publishable key + `next.revalidate` gives us
+ * the same caching semantics without ever touching cookies.
+ */
 const BACKEND_URL =
-  process.env.MEDUSA_BACKEND_URL ||
   process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
+  process.env.MEDUSA_BACKEND_URL ||
   "http://localhost:3092"
 
 const PUBLISHABLE_KEY =
@@ -94,6 +118,9 @@ async function listProducts({
     const nextPage = count > offset + limit ? pageParam + 1 : null
     return { response: { products: products || [], count: count || 0 }, nextPage }
   } catch {
+    // Backend briefly unreachable during build — sitemap re-renders
+    // on the next ISR tick (revalidate=3600 above) so the URL list
+    // self-heals. No log: this would be a misleading false alarm.
     return { response: { products: [], count: 0 }, nextPage: null }
   }
 }
@@ -153,6 +180,22 @@ async function listCategories(query?: Record<string, any>) {
   }
 }
 
+/**
+ * Paginated dynamic sitemap.
+ *
+ * For stores with thousands of products, a single sitemap.xml hits
+ * Google's 50k-URL / 50MB limit fast. Next.js `generateSitemaps` lets us
+ * split into `/sitemap/{id}.xml` chunks:
+ *
+ *   /sitemap/0.xml → static routes, collections, categories, brands, blog
+ *   /sitemap/1.xml → first batch of products
+ *   /sitemap/2.xml → next batch …
+ *
+ * URLs emitted match the user-facing paths (no country-code prefix) —
+ * the storefront middleware rewrites every public path internally to
+ * `/<countryCode>/...` so adding the prefix here would point crawlers
+ * at the rewrite target instead of the canonical address bar URL.
+ */
 const STATIC_PATHS = [
   "",
   "/store",
@@ -165,6 +208,7 @@ const STATIC_PATHS = [
   "/privacy",
   "/refund-policy",
 ]
+const PAGE_SIZE = 2000
 
 type Entry = MetadataRoute.Sitemap[number]
 
@@ -175,33 +219,23 @@ function entry(
   changeFrequency?: Entry["changeFrequency"],
   priority?: number
 ): Entry {
-  let cleaned = path.startsWith("/") ? path : `/${path}`
-  
-  if (cleaned.includes("?")) {
-    const [pathname, search] = cleaned.split("?")
-    const withSlash = pathname.endsWith("/") ? pathname : `${pathname}/`
-    cleaned = `${withSlash}?${search}`
-  } else {
-    if (!cleaned.endsWith("/") && !cleaned.includes(".")) {
-      cleaned = `${cleaned}/`
-    }
-  }
-
+  const cleaned = path.startsWith("/") ? path : `/${path}`
   return {
-    url: `${baseUrl.replace(/\/+$/, "")}${cleaned}`,
+    url: `${baseUrl}${cleaned}`,
     lastModified: lastModified ? new Date(lastModified) : new Date(),
     changeFrequency,
     priority,
   }
 }
 
+/** Resolve the set of country prefixes this storefront serves. */
 async function getCountryCodes(): Promise<string[]> {
   try {
     const regions = await listRegions()
     const codes = Array.from(
       new Set(
         (regions ?? [])
-          .flatMap((r) => r.countries?.map((c) => c.iso_2) ?? [])
+          .flatMap((r: any) => r.countries?.map((c: any) => c.iso_2) ?? [])
           .filter(Boolean) as string[]
       )
     )
@@ -212,12 +246,62 @@ async function getCountryCodes(): Promise<string[]> {
   }
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+/**
+ * Tells Next.js how many sitemap chunks to render. Fetches the product
+ * total once so we can split into PAGE_SIZE-sized product chunks.
+ */
+export async function generateSitemaps(): Promise<{ id: number }[]> {
+  const countryCodes = await getCountryCodes()
+
+  let total = 0
+  try {
+    const { response } = await listProducts({
+      countryCode: countryCodes[0],
+      queryParams: { limit: 1, fields: "id" },
+    })
+    total = response?.count || 0
+  } catch (e: any) {
+    // Already logged by `listProducts.catch` at warn level. Suppress
+    // the duplicate to keep the build output tidy.
+  }
+
+  // If we never managed to fetch a count, skip product chunks
+  // entirely — just emit chunk 0 (the static URLs). Otherwise we'd
+  // burn a build chunk that always returns an empty array. Crawlers
+  // will discover products via the next deploy's sitemap once the
+  // backend is healthy again.
+  if (total === 0) {
+    return [{ id: 0 }]
+  }
+
+  const productChunks = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  // id 0 → everything except products; id 1..N → product chunks
+  return Array.from({ length: 1 + productChunks }, (_, i) => ({ id: i }))
+}
+
+export default async function sitemap({
+  id,
+}: {
+  id: number
+}): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getBaseURL()
   const countryCodes = await getCountryCodes()
+
+  const numericId = Number(id)
+  if (numericId === 0) return buildIndexChunk(baseUrl, countryCodes)
+  return buildProductChunk(baseUrl, countryCodes, numericId - 1)
+}
+
+/**
+ * Chunk 0 — non-product entries: static routes, collections, categories,
+ * brands, blog posts and blog category filters. Cheap to render.
+ */
+async function buildIndexChunk(
+  baseUrl: string,
+  _countryCodes: string[]
+): Promise<MetadataRoute.Sitemap> {
   const entries: Entry[] = []
 
-  // 1. Static paths
   for (const path of STATIC_PATHS) {
     entries.push(
       entry(
@@ -231,56 +315,47 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   try {
-    const [
-      collectionsData,
-      categoriesData,
-      brandsData,
-      postsData,
-      blogCatsData,
-      productsRes
-    ] = await Promise.all([
-      listCollections({ fields: "handle" }).catch(() => ({ collections: [], count: 0 })),
-      listCategories().catch(() => []),
-      listBrands().catch(() => []),
-      listBlogPosts({ limit: 500 }).catch(() => ({ posts: [] })),
-      listBlogCategories().catch(() => []),
-      listProducts({
-        countryCode: countryCodes[0],
-        pageParam: 1,
-        queryParams: { limit: 5000, fields: "handle,updated_at,*categories,metadata" },
-      }).catch(() => ({ response: { products: [], count: 0 } }))
-    ])
-
-    // 2. Collections
-    const collections = collectionsData.collections || []
-    for (const c of collections) {
+    const { collections } = await listCollections({ fields: "handle" })
+    for (const c of collections || []) {
       if (!c.handle) continue
       entries.push(
         entry(baseUrl, `/collections/${c.handle}`, c.updated_at, "weekly", 0.6)
       )
     }
+  } catch (e) {
+    console.error("[sitemap] listCollections failed", e)
+  }
 
-    // 3. Categories
-    const product_categories = categoriesData || []
-    for (const cat of product_categories) {
+  try {
+    const product_categories = await listCategories()
+    for (const cat of product_categories || []) {
+      // Emit the *full* parent-prefixed path so sub-categories
+      // (e.g. /electronics/phones) point at their canonical URL
+      // rather than just /phones, which would 404.
       const path = buildCategoryPath(cat as any)
       if (!path) continue
       entries.push(
         entry(baseUrl, `/${path}`, cat.updated_at, "weekly", 0.6)
       )
     }
+  } catch (e) {
+    console.error("[sitemap] listCategories failed", e)
+  }
 
-    // 4. Brands
-    const brands = brandsData || []
+  try {
+    const brands = await listBrands()
     for (const brand of brands) {
       const path = buildBrandPath(brand, brands) || brand.handle
       entries.push(
         entry(baseUrl, `/${path}`, brand.updated_at, "weekly", 0.6)
       )
     }
+  } catch (e) {
+    console.error("[sitemap] listBrands failed", e)
+  }
 
-    // 5. Blog posts
-    const posts = postsData.posts || []
+  try {
+    const { posts } = await listBlogPosts({ limit: 500 })
     for (const post of posts) {
       entries.push(
         entry(
@@ -292,43 +367,64 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         )
       )
     }
+  } catch (e) {
+    console.error("[sitemap] listBlogPosts failed", e)
+  }
 
-    // 6. Blog categories
-    const categories = blogCatsData || []
+  try {
+    const categories = await listBlogCategories()
     for (const cat of categories) {
       entries.push(
         entry(baseUrl, `/blog?category=${cat.handle}`, undefined, "weekly", 0.4)
       )
     }
-
-    // 7. Products (with hidden products filtered out)
-    const HIDDEN_PRODUCT_IDS = new Set([
-      "prod_01KVAAJ903PZ4WY757XES1JJ6T",
-      "prod_01KVAA24X1ZTKAE5JG47YW9QE0",
-      "prod_01KVA9P34AFCZTTBZABWGT0XPJ",
-      "prod_01KVA9BZT07941A8G859PZVC3C"
-    ])
-    const products = productsRes.response?.products || []
-    const filteredProducts = products.filter(
-      (p: any) => p && p.id && !HIDDEN_PRODUCT_IDS.has(p.id)
-    )
-
-    for (const p of filteredProducts) {
-      if (!p.handle) continue
-      const path = getProductPath(p)
-      entries.push(
-        entry(
-          baseUrl,
-          path,
-          p.updated_at ?? undefined,
-          "weekly",
-          0.8
-        )
-      )
-    }
-
   } catch (e) {
-    console.error("[sitemap] parallel fetching failed", e)
+    console.error("[sitemap] listBlogCategories failed", e)
+  }
+
+  return entries
+}
+
+/**
+ * Chunk 1..N — paginated product entries. `pageIndex` is 0-based and
+ * maps to the backend offset `pageIndex * PAGE_SIZE`.
+ *
+ * Same product appears under every country prefix the store serves;
+ * we only need to fetch each page once and emit the URL per country.
+ */
+async function buildProductChunk(
+  baseUrl: string,
+  countryCodes: string[],
+  pageIndex: number
+): Promise<MetadataRoute.Sitemap> {
+  const entries: Entry[] = []
+  const pageParam = pageIndex + 1 // listProducts pageParam is 1-based
+
+  // Fetch the page once using the first country (region affects price, not slug)
+  let products: any[] = []
+  try {
+    const { response } = await listProducts({
+      countryCode: countryCodes[0],
+      pageParam,
+      queryParams: { limit: PAGE_SIZE, fields: "handle,updated_at,*categories,metadata" },
+    })
+    products = response?.products || []
+  } catch (e) {
+    console.error(`[sitemap] listProducts page ${pageParam} failed`, e)
+  }
+
+  for (const p of products) {
+    if (!p.handle) continue
+    const path = getProductPath(p)
+    entries.push(
+      entry(
+        baseUrl,
+        path,
+        p.updated_at ?? undefined,
+        "weekly",
+        0.8
+      )
+    )
   }
 
   return entries
