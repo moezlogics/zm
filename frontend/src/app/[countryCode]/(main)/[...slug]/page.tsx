@@ -308,7 +308,11 @@ export default async function SlugPage(props: Props) {
     const images = getImagesForVariant(pricedProduct, searchParams.v_id)
     const primaryCategory = pricedProduct.categories?.[0]
 
-    const categoryChain = buildCategoryChain(primaryCategory)
+    const brandChain = brand
+      ? (brand.parent_id
+          ? ([brands?.find((b) => b?.id === brand.parent_id), brand].filter(Boolean) as any[])
+          : [brand])
+      : []
     
     return (
       <>
@@ -319,6 +323,10 @@ export default async function SlugPage(props: Props) {
             ...categoryChain.map((c) => ({
               name: c.name,
               href: `/${buildCategoryPath(c)}`,
+            })),
+            ...brandChain.map((b) => ({
+              name: b.name,
+              href: `/${buildBrandPath(b, brands)}`,
             })),
             { name: pricedProduct.title },
           ]}
