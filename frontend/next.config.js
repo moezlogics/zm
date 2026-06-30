@@ -265,6 +265,11 @@ const nextConfig = {
         destination: "/:country/privacy/",
         permanent: true,
       },
+      {
+        source: "/50000-80000/redmi-note-16-price-in-pakistan/",
+        destination: "/new-mobile/redmi-note-16-price-in-pakistan/",
+        permanent: true,
+      },
     ]
   },
 }
