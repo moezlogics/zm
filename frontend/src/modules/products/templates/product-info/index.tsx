@@ -79,7 +79,7 @@
       return (
         <nav
           aria-label="Breadcrumb"
-          className="flex items-center gap-1.5 text-[12px] text-ink/45 whitespace-nowrap overflow-x-auto w-full md:flex-wrap"
+          className="flex items-center gap-1.5 text-[12px] text-black whitespace-nowrap overflow-x-auto w-full md:flex-wrap"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           <LocalizedClientLink href="/" className="hover:text-primary transition-colors">
@@ -88,13 +88,13 @@
           
           {categoryChain.map((c) => (
             <React.Fragment key={c.id}>
-              <i className="ph ph-caret-right text-[10px] text-ink/25" aria-hidden />
+              <i className="ph ph-caret-right text-[10px] text-black" aria-hidden />
               <span>{c.name}</span>
             </React.Fragment>
           ))}
 
-          <i className="ph ph-caret-right text-[10px] text-ink/25" aria-hidden />
-          <span className="text-ink/55 truncate max-w-[200px]">{product.title}</span>
+          <i className="ph ph-caret-right text-[10px] text-black" aria-hidden />
+          <span className="text-black truncate max-w-[200px]">{product.title}</span>
         </nav>
       )
     }
@@ -106,7 +106,7 @@
       if (!hasBrand) return null
       const parentBrand = brand!.parent_id ? brands?.find(b => b?.id === brand!.parent_id) : null
       return (
-        <div className="text-[12px] text-ink/55 mt-2">
+        <div className="text-[12px] text-black mt-2">
           By{" "}
           {parentBrand && (
             <>
@@ -154,8 +154,8 @@
               )}
               {formattedUpdated && (
                 <>
-                  {hasRating && <span className="text-ink/25 text-[12px]" aria-hidden>•</span>}
-                  <span className="text-[12px] text-ink/55 font-medium">
+                  {hasRating && <span className="text-black text-[12px]" aria-hidden>•</span>}
+                  <span className="text-[12px] text-black font-medium">
                     {formattedUpdated}
                   </span>
                 </>
@@ -324,7 +324,7 @@
             {hasBrand && (() => {
               const parentBrand = brand!.parent_id ? brands?.find(b => b?.id === brand!.parent_id) : null
               return (
-                <span className="text-[12px] text-ink/55">
+                <span className="text-[12px] text-black">
                   By{" "}
                   {parentBrand && (
                     <>
@@ -354,8 +354,8 @@
             )}
             {formattedUpdated && (
               <>
-                {(hasBrand || hasRating) && <span className="text-ink/25 text-[12px]" aria-hidden>•</span>}
-                <span className="text-[12px] text-ink/55 font-medium">
+                {(hasBrand || hasRating) && <span className="text-black text-[12px]" aria-hidden>•</span>}
+                <span className="text-[12px] text-black font-medium">
                   {formattedUpdated}
                 </span>
               </>
