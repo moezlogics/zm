@@ -89,7 +89,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
               )}
               <div className="min-w-0 flex-1">
                 <div
-                  className="text-sm font-bold text-ink truncate"
+                  className="text-sm font-bold text-black truncate"
                   data-testid="mobile-title"
                 >
                   {product.title}
@@ -99,7 +99,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                     <span
                       className={clx("text-sm font-bold", {
                         "text-danger": selectedPrice.price_type === "sale",
-                        "text-ink": selectedPrice.price_type !== "sale",
+                        "text-black": selectedPrice.price_type !== "sale",
                       })}
                     >
                       {selectedPrice.calculated_price}
@@ -123,7 +123,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                   type="button"
                   onClick={open}
                   data-testid="mobile-actions-button"
-                  className="h-11 px-4 rounded-full bg-surface text-ink text-sm font-semibold border border-line flex items-center justify-between gap-2 hover:border-primary transition-colors"
+                  className="h-11 px-4 rounded-full bg-surface text-black text-sm font-semibold border border-line flex items-center justify-between gap-2 hover:border-primary transition-colors"
                 >
                   <span className="truncate">
                     {variant

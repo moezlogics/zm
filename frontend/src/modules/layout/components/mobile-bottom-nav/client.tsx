@@ -338,7 +338,7 @@ export default function MobileBottomNavClient({
                   "relative flex flex-col items-center justify-center gap-0.5 w-full h-full",
                   "text-[11px] font-bold tracking-wide",
                   "motion-safe:transition-colors motion-safe:duration-200",
-                  active ? "text-primary" : "text-ink/55 hover:text-ink",
+                  active ? "text-primary" : "text-black",
                 ].join(" ")}
               >
                 {/* Icon container — pops on active state with a
