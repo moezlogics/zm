@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import dynamic from "next/dynamic"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import SkeletonProductGrid from "@modules/skeletons/templates/skeleton-product-grid"
 import SortDropdown from "@modules/store/components/sort-dropdown"
@@ -13,7 +14,11 @@ import { listProducts } from "@lib/data/products"
 import { sdk } from "@lib/config"
 import MobileBrandsSidebar from "@modules/store/components/mobile-brands-sidebar"
 import PaginatedProducts from "./paginated-products"
-import GoogleAd from "@modules/common/components/google-ad"
+
+const LazyGoogleAd = dynamic(
+  () => import("@modules/common/components/google-ad"),
+  { ssr: false }
+)
 
 type Props = {
   sortBy?: SortOptions
@@ -283,7 +288,7 @@ const StoreTemplate = async ({
       </div>
 
       {/* Google AdSense slot */}
-      <GoogleAd />
+      <LazyGoogleAd />
 
       {children && <div className="mb-6">{children}</div>}
 

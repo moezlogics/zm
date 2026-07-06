@@ -5,7 +5,6 @@ import "styles/globals.css"
 import GoogleAnalytics from "@modules/analytics/google-analytics"
 import MetaPixel from "@modules/analytics/meta-pixel"
 import CustomHeadCode from "@modules/analytics/custom-head-code"
-import AdSenseDeferredLoader from "@modules/analytics/adsense-loader"
 import BusinessJsonLd from "@modules/seo/business-json-ld"
 import SiteJsonLd from "@modules/seo/site-json-ld"
 import { getSiteSettings, resolveProductCardAspectClass } from "@lib/data/site-settings"
@@ -163,7 +162,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
         />
         <GoogleAnalytics measurementId={settings.google_analytics_id} />
         <MetaPixel pixelId={settings.meta_pixel_id} />
-        {/* Hint DNS only — script loads deferred via AdSenseDeferredLoader */}
+        {/* Hint DNS only — AdSense loads from GoogleAd when slot is near viewport */}
         <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
         {/* LocalBusiness JSON-LD — emits GroceryStore / Pharmacy / Store
             schema based on the admin-configured business type. */}
@@ -175,7 +174,6 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
       </head>
       <body className="font-sans antialiased text-ink bg-bg">
         <UserDataProvider>
-          <AdSenseDeferredLoader />
           <CartDrawerProvider>
             <SiteSettingsProvider aspectClass={resolveProductCardAspectClass(settings)}>
               <main className="relative">{props.children}</main>

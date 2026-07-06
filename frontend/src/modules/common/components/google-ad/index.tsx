@@ -2,14 +2,11 @@
 
 import { useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
-import { ensureAdSenseLoaded } from "@modules/analytics/adsense-loader"
+import { ensureAdSenseLoaded, whenPageLoaded } from "@modules/analytics/adsense-loader"
 
 type GoogleAdProps = {
-  /** AdSense ad-unit slot id. Defaults to the site's responsive unit. */
   slot?: string
-  /** Reserved height (px) so the slot holds space before the ad fills. */
   minHeight?: number
-  /** Extra classes on the wrapper (spacing, etc.). */
   className?: string
 }
 
@@ -17,28 +14,10 @@ const AD_CLIENT = "ca-pub-8616277671572207"
 const DEFAULT_SLOT = "6428686902"
 
 /**
- * Google AdSense slot — reliable on Next.js App Router (SSR + SPA nav).
- *
- * WHY THIS REWRITE — the old version did:
- *   const adsbygoogle = window.adsbygoogle || []
- *   adsbygoogle.push({})
- * When the AdSense loader hadn't defined `window.adsbygoogle` yet (slow
- * network, or before the afterInteractive script ran), that pushed into a
- * THROWAWAY local array AdSense never reads → the ad silently never loaded.
- * That is the "ads load hi nahi hote → no impressions → no clicks → no
- * revenue" bug.
- *
- * Fixes:
- *  1. Assign back to window: `(window.adsbygoogle = window.adsbygoogle || []).push({})`
- *     so the request reaches AdSense even before the loader finishes (it
- *     drains the queued pushes once it loads).
- *  2. Push EXACTLY ONCE per slot (ref guard) → no "All ins elements already
- *     have ads" duplicate-init errors.
- *  3. Wait until the <ins> actually has width — AdSense permanently skips a
- *     0-width slot (availableWidth=0 → blank forever) — and retry until the
- *     loader is ready.
- *  4. Remount per route (`key={pathname}`) so a fresh ad fills on every
- *     client-side navigation, not just the first page.
+ * AdSense slot — loads ONLY after:
+ *   1. document `load` (browser tab spinner finished)
+ *   2. slot is near the viewport (IntersectionObserver)
+ * Then pushes to `window.adsbygoogle` so impressions still register.
  */
 export default function GoogleAd({
   slot = DEFAULT_SLOT,
@@ -54,8 +33,10 @@ export default function GoogleAd({
     let tries = 0
     let timer: ReturnType<typeof setTimeout> | undefined
     let observer: IntersectionObserver | undefined
+    let cancelled = false
 
     const tryFill = () => {
+      if (cancelled) return
       const ins = insRef.current
       if (!ins || pushed.current) return
       if (ins.getAttribute("data-adsbygoogle-status") === "done") {
@@ -70,28 +51,14 @@ export default function GoogleAd({
         const w = window as Window & { adsbygoogle?: unknown[] }
         ;(w.adsbygoogle = w.adsbygoogle || []).push({})
         pushed.current = true
-        // #region agent log
-        fetch("http://127.0.0.1:7489/ingest/fc89e651-bfd9-4ece-8a01-30fee9370848", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "90b8a9" },
-          body: JSON.stringify({
-            sessionId: "90b8a9",
-            runId: "lcp-fix",
-            hypothesisId: "H3-adsense",
-            location: "google-ad/index.tsx",
-            message: "Ad slot push succeeded",
-            data: { slot, pathname: pathname?.slice(0, 40) },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
       } catch {
         if (tries++ < 25) timer = setTimeout(tryFill, 200)
       }
     }
 
     const startFill = () => {
-      ensureAdSenseLoaded(AD_CLIENT)
+      whenPageLoaded()
+        .then(() => ensureAdSenseLoaded(AD_CLIENT))
         .then(() => tryFill())
         .catch(() => {
           if (tries++ < 25) timer = setTimeout(tryFill, 300)
@@ -107,14 +74,15 @@ export default function GoogleAd({
             startFill()
           }
         },
-        { rootMargin: "240px 0px" }
+        { rootMargin: "320px 0px" }
       )
       observer.observe(wrapper)
     } else {
-      timer = setTimeout(startFill, 0)
+      timer = setTimeout(startFill, 500)
     }
 
     return () => {
+      cancelled = true
       observer?.disconnect()
       if (timer) clearTimeout(timer)
     }

@@ -6,7 +6,7 @@ import { notifyCartUpdated } from "@lib/context/user-data-context"
 
 import { HttpTypes } from "@medusajs/types"
 import { isEqual } from "lodash"
-import { useParams, usePathname, useSearchParams } from "next/navigation"
+import { useParams, usePathname } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
 import ProductPrice from "../product-price"
 
@@ -16,7 +16,7 @@ import OptionSelect from "@modules/products/components/product-actions/option-se
 import QuantityStepper from "../quantity-stepper"
 
 import WhatsAppOrderButton from "@modules/common/components/whatsapp-button"
-import GoogleAd from "@modules/common/components/google-ad"
+
 import { getPreorderState } from "@lib/util/preorder"
 import CompareButton from "@modules/products/components/compare/compare-button"
 import { useCompare, CompareItem, COMPARE_MAX } from "@modules/products/components/compare/context"
@@ -51,7 +51,6 @@ export default function ProductActions({
 }: ProductActionsProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
 
   const [options, setOptions] = useState<Record<string, string | undefined>>({})
   const [qty, setQty] = useState(1)
@@ -107,7 +106,9 @@ export default function ProductActions({
     const totalVariants = product.variants?.length ?? 0
     if (totalVariants <= 1) return
 
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : ""
+    )
     const value = isValidVariant ? selectedVariant?.id : null
 
     if (params.get("v_id") === value) return
@@ -117,7 +118,7 @@ export default function ProductActions({
 
     const qs = params.toString()
     router.replace(qs ? `${pathname}?${qs}` : pathname)
-  }, [selectedVariant, isValidVariant])
+  }, [selectedVariant, isValidVariant, pathname, product.variants, router])
 
   const inStock = useMemo(() => {
     if (selectedVariant && !selectedVariant.manage_inventory) return true
@@ -393,9 +394,6 @@ export default function ProductActions({
       )}
       </>
       )}
-
-      {/* Google AdSense slot */}
-      <GoogleAd />
 
       {/* Add-to-Compare — shown unless comparable is explicitly disabled */}
       {comparable && (
