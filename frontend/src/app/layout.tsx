@@ -5,7 +5,7 @@ import "styles/globals.css"
 import GoogleAnalytics from "@modules/analytics/google-analytics"
 import MetaPixel from "@modules/analytics/meta-pixel"
 import CustomHeadCode from "@modules/analytics/custom-head-code"
-import Script from "next/script"
+import AdSenseDeferredLoader from "@modules/analytics/adsense-loader"
 import BusinessJsonLd from "@modules/seo/business-json-ld"
 import SiteJsonLd from "@modules/seo/site-json-ld"
 import { getSiteSettings, resolveProductCardAspectClass } from "@lib/data/site-settings"
@@ -72,9 +72,6 @@ export async function generateMetadata(): Promise<Metadata> {
     type: "website",
     locale: "en_PK",
     alternateLocale: ["ur_PK"],
-    ...(settings.seo_default_og_image?.trim()
-      ? { images: [{ url: settings.seo_default_og_image }] }
-      : {}),
   }
 
   return meta
@@ -166,17 +163,8 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
         />
         <GoogleAnalytics measurementId={settings.google_analytics_id} />
         <MetaPixel pixelId={settings.meta_pixel_id} />
-        {/* Warm up the AdSense connections early so ad units fill faster
-            (more viewable impressions = more revenue). */}
-        <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossOrigin="" />
-        <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="" />
+        {/* Hint DNS only — script loads deferred via AdSenseDeferredLoader */}
         <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8616277671572207"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
         {/* LocalBusiness JSON-LD — emits GroceryStore / Pharmacy / Store
             schema based on the admin-configured business type. */}
         <SiteJsonLd settings={settings} />
@@ -187,6 +175,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
       </head>
       <body className="font-sans antialiased text-ink bg-bg">
         <UserDataProvider>
+          <AdSenseDeferredLoader />
           <CartDrawerProvider>
             <SiteSettingsProvider aspectClass={resolveProductCardAspectClass(settings)}>
               <main className="relative">{props.children}</main>

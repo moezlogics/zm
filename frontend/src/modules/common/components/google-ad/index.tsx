@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
+import { ensureAdSenseLoaded } from "@modules/analytics/adsense-loader"
 
 type GoogleAdProps = {
   /** AdSense ad-unit slot id. Defaults to the site's responsive unit. */
@@ -52,36 +53,72 @@ export default function GoogleAd({
     pushed.current = false
     let tries = 0
     let timer: ReturnType<typeof setTimeout> | undefined
+    let observer: IntersectionObserver | undefined
 
     const tryFill = () => {
       const ins = insRef.current
       if (!ins || pushed.current) return
-      // Already filled (e.g. fast remount) → nothing to do.
       if (ins.getAttribute("data-adsbygoogle-status") === "done") {
         pushed.current = true
         return
       }
-      // AdSense refuses to fill a 0-width slot → wait for layout, then retry.
       if (ins.getBoundingClientRect().width === 0) {
         if (tries++ < 25) timer = setTimeout(tryFill, 150)
         return
       }
       try {
-        const w = window as any
+        const w = window as Window & { adsbygoogle?: unknown[] }
         ;(w.adsbygoogle = w.adsbygoogle || []).push({})
         pushed.current = true
+        // #region agent log
+        fetch("http://127.0.0.1:7489/ingest/fc89e651-bfd9-4ece-8a01-30fee9370848", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "90b8a9" },
+          body: JSON.stringify({
+            sessionId: "90b8a9",
+            runId: "lcp-fix",
+            hypothesisId: "H3-adsense",
+            location: "google-ad/index.tsx",
+            message: "Ad slot push succeeded",
+            data: { slot, pathname: pathname?.slice(0, 40) },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
       } catch {
-        // Loader not ready yet / transient → retry briefly.
         if (tries++ < 25) timer = setTimeout(tryFill, 200)
       }
     }
 
-    // Let the new route paint first, then fill.
-    timer = setTimeout(tryFill, 0)
+    const startFill = () => {
+      ensureAdSenseLoaded(AD_CLIENT)
+        .then(() => tryFill())
+        .catch(() => {
+          if (tries++ < 25) timer = setTimeout(tryFill, 300)
+        })
+    }
+
+    const wrapper = insRef.current?.parentElement
+    if (wrapper && "IntersectionObserver" in window) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            observer?.disconnect()
+            startFill()
+          }
+        },
+        { rootMargin: "240px 0px" }
+      )
+      observer.observe(wrapper)
+    } else {
+      timer = setTimeout(startFill, 0)
+    }
+
     return () => {
+      observer?.disconnect()
       if (timer) clearTimeout(timer)
     }
-  }, [pathname])
+  }, [pathname, slot])
 
   return (
     <div
