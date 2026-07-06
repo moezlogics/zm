@@ -3,17 +3,11 @@ import StoreTemplate from "@modules/store/templates"
 import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
 
 export default function CollectionTemplate({
-  sortBy,
   collection,
-  page,
   countryCode,
-  searchParams,
 }: {
-  sortBy?: SortOptions
   collection: HttpTypes.StoreCollection
-  page?: string
   countryCode: string
-  searchParams?: any
 }) {
   const breadcrumbs = [
     { label: "Home", href: "/" },
@@ -28,11 +22,8 @@ export default function CollectionTemplate({
       <StoreTemplate
         title={collection.title}
         breadcrumbs={breadcrumbs}
-        sortBy={sortBy}
-        page={page}
         countryCode={countryCode}
         collectionId={collection.id}
-        searchParams={searchParams}
       />
 
       {/* Rich content from admin — rendered below products */}

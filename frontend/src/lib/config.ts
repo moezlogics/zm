@@ -1,4 +1,3 @@
-import { getLocaleHeader } from "@lib/util/get-locale-header"
 import Medusa, { FetchArgs, FetchInput } from "@medusajs/js-sdk"
 
 // Backend URL resolution — CRITICAL for archive/listing page speed.
@@ -42,22 +41,6 @@ sdk.client.fetch = async <T>(
   input: FetchInput,
   init?: FetchArgs
 ): Promise<T> => {
-  const headers = init?.headers ?? {}
-  let localeHeader: Record<string, string | null> | undefined
-  try {
-    localeHeader = await getLocaleHeader()
-    headers["x-medusa-locale"] ??= localeHeader["x-medusa-locale"]
-  } catch {}
-
-  const newHeaders = {
-    ...localeHeader,
-    ...headers,
-  }
-  init = {
-    ...init,
-    headers: newHeaders,
-  }
-  
   const res = await originalFetch(input, init)
 
   if (res && typeof res === "object") {

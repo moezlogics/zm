@@ -2,6 +2,7 @@
 
 import { addToCart } from "@lib/data/cart"
 import { trackAddToCart } from "@lib/analytics"
+import { notifyCartUpdated } from "@lib/context/user-data-context"
 
 import { HttpTypes } from "@medusajs/types"
 import { isEqual } from "lodash"
@@ -167,6 +168,7 @@ export default function ProductActions({
       quantity: qty,
       countryCode,
     })
+    notifyCartUpdated()
     trackAddToCart({
       id: product.id,
       title: product.title || "",

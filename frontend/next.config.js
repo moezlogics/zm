@@ -20,12 +20,6 @@ const nextConfig = {
   // Tree-shake big "barrel" packages so importing one helper/icon doesn't
   // pull the whole library into the shared bundle (cuts unused JS).
   experimental: {
-    // Inline each route's CSS into the HTML <head> instead of shipping a
-    // render-blocking <link rel="stylesheet">. PageSpeed flagged the 30KB
-    // CSS bundle as the #1 render-blocking request (~1.7s on Slow 4G,
-    // pushing FCP to 4.5s). Inlining removes that round-trip so first
-    // paint can start the moment the HTML arrives. (Next 15.3+)
-    inlineCss: true,
     // Client-side router cache. Without this (Next 15 default = 0s for
     // dynamic pages) EVERY navigation — even going BACK to a page you
     // just saw — re-renders on the server and shows the skeleton again.

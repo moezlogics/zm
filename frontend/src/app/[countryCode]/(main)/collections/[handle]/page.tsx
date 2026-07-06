@@ -16,55 +16,55 @@ import BreadcrumbJsonLd from "@modules/common/components/breadcrumb-jsonld"
  * collection page 500s in production. See products/[handle]/page.tsx
  * for the longer explanation.
  */
-export const dynamic = "force-dynamic"
+export const revalidate = 300
 
 type Props = {
   params: Promise<{ handle: string; countryCode: string }>
-  searchParams: Promise<{
-    page?: string
-    sortBy?: SortOptions
-    [key: string]: any
-  }>
 }
 
 export const PRODUCT_LIMIT = 12
 
 export async function generateStaticParams() {
-  const { collections } = await listCollections({
-    fields: "*products",
-  })
+  try {
+    const { collections } = await listCollections({
+      fields: "*products",
+    })
 
-  if (!collections) {
+    if (!collections) {
+      return []
+    }
+
+    const countryCodes = await listRegions().then(
+      (regions: StoreRegion[]) =>
+        regions
+          ?.map((r) => r.countries?.map((c) => c.iso_2))
+          .flat()
+          .filter(Boolean) as string[]
+    )
+
+    const collectionHandles = collections.map(
+      (collection: StoreCollection) => collection.handle
+    )
+
+    const staticParams = countryCodes
+      ?.map((countryCode: string) =>
+        collectionHandles.map((handle: string | undefined) => ({
+          countryCode,
+          handle,
+        }))
+      )
+      .flat()
+
+    return staticParams
+  } catch (err) {
+    // Return empty array to prevent build failures when backend or publishable keys are missing/offline.
+    // Routes will resolve dynamically at runtime.
     return []
   }
-
-  const countryCodes = await listRegions().then(
-    (regions: StoreRegion[]) =>
-      regions
-        ?.map((r) => r.countries?.map((c) => c.iso_2))
-        .flat()
-        .filter(Boolean) as string[]
-  )
-
-  const collectionHandles = collections.map(
-    (collection: StoreCollection) => collection.handle
-  )
-
-  const staticParams = countryCodes
-    ?.map((countryCode: string) =>
-      collectionHandles.map((handle: string | undefined) => ({
-        countryCode,
-        handle,
-      }))
-    )
-    .flat()
-
-  return staticParams
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params
-  const searchParams = await props.searchParams
   const collection = await getCollectionByHandle(params.handle)
 
   if (!collection) {
@@ -78,10 +78,6 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     `Shop the ${collection.title} collection.`
   const url = canonicalUrl(`/collections/${params.handle}`)
   const featuredImage = meta.featured_image as string | undefined
-
-  const hasFilterParams = Object.entries(searchParams || {}).some(
-    ([key, val]) => (key.startsWith("spec_") || ["minPrice", "maxPrice", "inStock", "sortBy", "page"].includes(key)) && val
-  )
 
   return {
     title,
@@ -100,20 +96,16 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
       ...(featuredImage ? { images: [featuredImage] } : {}),
     },
     alternates: { canonical: url },
-    robots: hasFilterParams
-      ? { index: false, follow: true }
-      : {
-          index: true,
-          follow: true,
-          googleBot: { index: true, follow: true, "max-image-preview": "large" },
-        },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, "max-image-preview": "large" },
+    },
   }
 }
 
 export default async function CollectionPage(props: Props) {
-  const searchParams = await props.searchParams
   const params = await props.params
-  const { sortBy, page } = searchParams
 
   const collection = await getCollectionByHandle(params.handle).then(
     (collection: StoreCollection) => collection
@@ -156,10 +148,7 @@ export default async function CollectionPage(props: Props) {
       />
       <CollectionTemplate
         collection={collection}
-        page={page}
-        sortBy={sortBy}
         countryCode={params.countryCode}
-        searchParams={searchParams}
       />
     </>
   )

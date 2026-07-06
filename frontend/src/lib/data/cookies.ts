@@ -73,6 +73,9 @@ const GLOBAL_REVALIDATE_TAGS = new Set([
   "banners",
   "brands",
   "blog",
+  "locales",
+  "spec-templates",
+  "variants",
 ])
 
 /**
