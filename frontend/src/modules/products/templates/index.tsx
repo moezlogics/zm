@@ -1,13 +1,8 @@
 import React, { Suspense } from "react"
-import dynamic from "next/dynamic"
 
+import LazyGoogleAd from "@modules/common/components/google-ad/lazy-google-ad"
 import ImageGalleryBridge from "@modules/products/components/image-gallery/gallery-bridge"
 import ProductLcpImage from "@modules/products/components/product-lcp-image"
-
-const LazyGoogleAd = dynamic(
-  () => import("@modules/common/components/google-ad"),
-  { ssr: false }
-)
 import ProductActions from "@modules/products/components/product-actions"
 import ProductOnboardingCta from "@modules/products/components/product-onboarding-cta"
 import ProductTabs from "@modules/products/components/product-tabs"

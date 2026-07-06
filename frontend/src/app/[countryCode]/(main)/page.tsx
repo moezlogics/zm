@@ -1,6 +1,5 @@
 import { Metadata } from "next"
 import { Suspense } from "react"
-import dynamic from "next/dynamic"
 
 import { GridSkeleton } from "@modules/skeletons/templates/page-skeletons"
 import { getRegion } from "@lib/data/regions"
@@ -13,11 +12,7 @@ import ProductRail from "@modules/home/components/featured-products/product-rail
 import CategoryCarouselServer from "@modules/home/components/category-carousel/server"
 import { listBrands } from "@lib/data/brands"
 import MobileBrandsSidebar from "@modules/store/components/mobile-brands-sidebar"
-
-const LazyGoogleAd = dynamic(
-  () => import("@modules/common/components/google-ad"),
-  { ssr: false }
-)
+import LazyGoogleAd from "@modules/common/components/google-ad/lazy-google-ad"
 
 
 /**
