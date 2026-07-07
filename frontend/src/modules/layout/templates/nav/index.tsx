@@ -1,4 +1,4 @@
-import { listRegions } from "@lib/data/regions"
+﻿import { listRegions } from "@lib/data/regions"
 import { listLocales } from "@lib/data/locales"
 import { listCategories } from "@lib/data/categories"
 import { getSiteSettings } from "@lib/data/site-settings"
@@ -8,15 +8,16 @@ import CartButton from "@modules/layout/components/cart-button"
 import NavAccountLink from "@modules/layout/components/nav-account-link"
 import SideMenu from "@modules/layout/components/side-menu"
 import LazySearchBar from "@modules/search/components/smart-search-bar/lazy-search-bar"
+import NextImage from "next/image"
 
 /**
- * Clean, solid-white header — no transparency, no category bar.
+ * Clean, solid-white header â€” no transparency, no category bar.
  *
- * Desktop (≥ small):
- *   [Logo]   [Home Shop▾ Blog Contact]   [Search pill] [👤 ❤ 🛍]
+ * Desktop (â‰¥ small):
+ *   [Logo]   [Home Shopâ–¾ Blog Contact]   [Search pill] [ðŸ‘¤ â¤ ðŸ›]
  *
  * Mobile (< small):
- *   [☰]      [Logo]     [🔍][🛍]
+ *   [â˜°]      [Logo]     [ðŸ”][ðŸ›]
  */
 export default async function Nav() {
   // Cookie-free on purpose: customer state + current locale hydrate
@@ -41,17 +42,20 @@ export default async function Nav() {
   const logoWidthDesktop = settings.site_logo_width_desktop ? parseInt(settings.site_logo_width_desktop, 10) : null
   const logoWidthMobile = settings.site_logo_width_mobile ? parseInt(settings.site_logo_width_mobile, 10) : null
 
-  const Logo = ({ size = "md", isMobile = false }: { size?: "sm" | "md" | "lg"; isMobile?: boolean }) => {
-    const customWidth = isMobile ? logoWidthMobile : logoWidthDesktop
-    const h =
-      size === "sm" ? "h-9" : size === "lg" ? "h-9 md:h-10" : "h-7 md:h-8"
+  const Logo = ({ size = "md", isMobile = false, priority = false }: { size?: "sm" | "md" | "lg"; isMobile?: boolean; priority?: boolean }) => {
+    const customWidth = isMobile ? (logoWidthMobile || 200) : (logoWidthDesktop || 250)
+    const h = size === "sm" ? 36 : size === "lg" ? 40 : 32
+
     return logoUrl ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <NextImage
         src={logoUrl}
         alt={siteName}
-        className={customWidth ? "object-contain" : `${h} w-auto object-contain`}
-        style={customWidth ? { width: `${customWidth}px`, height: "auto" } : undefined}
+        width={customWidth}
+        height={h}
+        className="object-contain w-auto"
+        sizes={isMobile ? "200px" : "300px"}
+        priority={priority}
+        style={{ height: `${h}px`, width: "auto", maxWidth: `${customWidth}px` }}
       />
     ) : (
       <span
@@ -75,7 +79,7 @@ export default async function Nav() {
       role="banner"
       aria-label={siteName}
     >
-      {/* Subtle accent strip — uses the dedicated header_accent so it
+      {/* Subtle accent strip â€” uses the dedicated header_accent so it
           adapts to the header palette (e.g. gold strip under a navy
           header in Midnight Luxe). */}
       <div
@@ -86,9 +90,9 @@ export default async function Nav() {
         aria-hidden
       />
 
-      {/* === Mobile header — 64px main row, NO category bar === */}
+      {/* === Mobile header â€” 64px main row, NO category bar === */}
       <div className="small:hidden bg-header border-b border-header-line shadow-sm">
-        {/* Row 1 — hamburger · logo · search · cart (64px) */}
+        {/* Row 1 â€” hamburger Â· logo Â· search Â· cart (64px) */}
         <div className="px-2 h-16 flex items-center gap-1">
           <div className="w-12 h-12 flex items-center justify-center shrink-0">
             <SideMenu regions={regions} locales={locales} />
@@ -100,7 +104,7 @@ export default async function Nav() {
             className="flex-1 flex items-center justify-center min-w-0 text-header-fg"
             data-testid="nav-store-link-mobile"
           >
-            <Logo size="sm" isMobile />
+            <Logo size="sm" isMobile priority />
           </LocalizedClientLink>
 
           <div className="w-12 h-12 flex items-center justify-center shrink-0">
@@ -123,7 +127,7 @@ export default async function Nav() {
               data-testid="nav-store-link"
               aria-label={siteName}
             >
-              <Logo size="md" />
+              <Logo size="md" priority />
             </LocalizedClientLink>
 
             {/* Center: primary nav with sweep-underline hover */}
