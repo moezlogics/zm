@@ -1,6 +1,5 @@
-import React, { Suspense } from "react"
+﻿import React, { Suspense } from "react"
 
-import LazyGoogleAd from "@modules/common/components/google-ad/lazy-google-ad"
 import ImageGalleryBridge from "@modules/products/components/image-gallery/gallery-bridge"
 import ProductLcpImage from "@modules/products/components/product-lcp-image"
 import ProductActions from "@modules/products/components/product-actions"
@@ -22,9 +21,12 @@ import { getProductPrice } from "@lib/util/get-product-price"
 import { getProductPath } from "@lib/util/product"
 import { canonicalUrl } from "@lib/util/seo-url"
 
-import FrequentlyBoughtTogether from "@modules/products/components/frequently-bought-together"
+import dynamic from "next/dynamic"
+
+const FrequentlyBoughtTogether = dynamic(
+  () => import("@modules/products/components/frequently-bought-together")
+)
 import { slimProductForClient } from "@lib/util/slim-product"
-import ProductReviews from "@modules/products/components/product-reviews"
 import ProductDescriptionTabs from "@modules/products/components/product-description-tabs"
 import ProductViewTracker from "@modules/analytics/product-view-tracker"
 import BundleCard from "@modules/products/components/bundle-card"
@@ -41,7 +43,7 @@ type ProductTemplateProps = {
 }
 
 function resolveAvailability(product: HttpTypes.StoreProduct): string {
-  // Pre-order takes precedence — once the admin flips
+  // Pre-order takes precedence â€” once the admin flips
   // `metadata.preorder_open` on (and `launch_date` is in the future),
   // surface a PreOrder availability to Google instead of OutOfStock.
   const pre = getPreorderState(product.metadata)
@@ -146,7 +148,7 @@ const ProductTemplate = async ({
       // Resolve the spec template for the product's first category
       // that has one (walking parent chains server-side). Falls back
       // to `null` when no category in the product's category list
-      // has a template configured — the storefront then uses the
+      // has a template configured â€” the storefront then uses the
       // heuristic spec grouping (back-compat with legacy products).
       getFirstResolvedTemplate(
         (product.categories || []).map((c: any) => c?.id)
@@ -165,13 +167,13 @@ const ProductTemplate = async ({
 
   // ONE slim copy of the product for ALL client components. Passing the
   // full product (with 11KB+ rich descriptions in metadata) to
-  // ProductActions/ProductTabs serialized it 3× into the flight payload —
+  // ProductActions/ProductTabs serialized it 3Ã— into the flight payload â€”
   // measured ~42KB of duplicate JSON on every PDP response. Sharing the
   // same object reference also lets React dedupe it across the mobile +
   // desktop layout instances.
   const clientProduct = slimProductForClient(product)
 
-  // ?v_id=… narrows the gallery to a variant's images CLIENT-side (an ISR
+  // ?v_id=â€¦ narrows the gallery to a variant's images CLIENT-side (an ISR
   // page cannot read the query string server-side).
   const variantImageIds: Record<string, string[]> = {}
   for (const v of product.variants ?? []) {
@@ -218,9 +220,6 @@ const ProductTemplate = async ({
       />
     </Suspense>
   )
-
-
-  const adSlot = <LazyGoogleAd minHeight={100} />
 
   let allProducts: any[] = allProductsResult.response.products || []
 
@@ -292,11 +291,11 @@ const ProductTemplate = async ({
 
   // First variant carries the canonical SKU / barcode / dimensions.
   // Medusa exposes weight (g), length / width / height (cm) natively
-  // on variants — we map them into the GS1-style schema fields.
+  // on variants â€” we map them into the GS1-style schema fields.
   const v0: any = product.variants?.[0] || {}
   const meta: any = product.metadata || {}
 
-  // GTIN / MPN — Merchant Center scoring depends heavily on these.
+  // GTIN / MPN â€” Merchant Center scoring depends heavily on these.
   // Accept them from metadata (`gtin`, `gtin13`, `mpn`) and fall back
   // to the variant `barcode` field for the GTIN (most common in our
   // admin workflow).
@@ -305,7 +304,7 @@ const ProductTemplate = async ({
   const mpn: string | undefined = meta.mpn || meta.model || undefined
 
   // Schema.org dimensions use QuantitativeValue with unitCode UN/CEFACT
-  // codes: KGM = kg, CMT = cm. Convert grams→kg for weight.
+  // codes: KGM = kg, CMT = cm. Convert gramsâ†’kg for weight.
   const dim = (raw: any, unitCode: string) => {
     const n = typeof raw === "number" ? raw : parseFloat(raw)
     if (!Number.isFinite(n) || n <= 0) return undefined
@@ -316,7 +315,7 @@ const ProductTemplate = async ({
   const height = dim(v0.height, "CMT")
   const depth = dim(v0.length, "CMT")
 
-  // Optional warranty (months) — expressed as WarrantyPromise.
+  // Optional warranty (months) â€” expressed as WarrantyPromise.
   const warrantyMonths = (() => {
     const m =
       meta.warranty_months ??
@@ -328,7 +327,7 @@ const ProductTemplate = async ({
   })()
 
   const productUrl = canonicalUrl(getProductPath(product, brand))
-  const sellerRef = { "@id": `${getBaseURL().replace(/\/+$/, "")}/#organization` }
+  const sellerRef = { "@id": `${getBaseURL()}/#organization` }
 
   // Try to find a valid price from the cheapest variant or metadata specs.
   const cheapestPriceObj = getProductPrice({ product }).cheapestPrice
@@ -344,7 +343,7 @@ const ProductTemplate = async ({
 
   const resolvedPrice = firstVariantPrice || cheapestPriceAmount || parsedMetadataPrice
 
-  // Offer block — enriched with seller, priceValidUntil, return
+  // Offer block â€” enriched with seller, priceValidUntil, return
   // policy, and shipping details so Merchant Center can render the
   // product without a feed.
   const priceValidUntil = (() => {
@@ -367,7 +366,7 @@ const ProductTemplate = async ({
         itemCondition: "https://schema.org/NewCondition",
         priceValidUntil,
         seller: sellerRef,
-        // 7-day easy returns — mirrors the TrustBadges promise.
+        // 7-day easy returns â€” mirrors the TrustBadges promise.
         hasMerchantReturnPolicy: {
           "@type": "MerchantReturnPolicy",
           applicableCountry: "PK",
@@ -377,7 +376,7 @@ const ProductTemplate = async ({
           returnMethod: "https://schema.org/ReturnByMail",
           returnFees: "https://schema.org/FreeReturn",
         },
-        // Free shipping over Rs. 3,000 — mirrors the active TrustBadge.
+        // Free shipping over Rs. 3,000 â€” mirrors the active TrustBadge.
         shippingDetails: {
           "@type": "OfferShippingDetails",
           shippingRate: {
@@ -452,7 +451,7 @@ const ProductTemplate = async ({
     },
   }
 
-  // additionalProperty — surfaces structured specs to Google Shopping
+  // additionalProperty â€” surfaces structured specs to Google Shopping
   // and Merchant Listings, which display them as bullet rows on the
   // search result snippet. Maps directly from metadata.specs.
   const specMap = buildSpecMap((product.metadata as any)?.specs)
@@ -465,7 +464,7 @@ const ProductTemplate = async ({
     }))
   }
 
-  // Pre-order release date — Google honours `releaseDate` for
+  // Pre-order release date â€” Google honours `releaseDate` for
   // PreOrder availability so the badge can show "Available from".
   // `priceValidUntil` was already aligned to the launch date above.
   const preorder = getPreorderState(product.metadata)
@@ -476,7 +475,7 @@ const ProductTemplate = async ({
   // Ratings/reviews are emitted ONLY when they are REAL. Google's rich-
   // result requirement ("offers, review, OR aggregateRating") is already
   // satisfied by `offers` above, so we do NOT fabricate a rating/review
-  // when none exist — fake/self-serving reviews violate Google's policy
+  // when none exist â€” fake/self-serving reviews violate Google's policy
   // and risk a structured-data manual action.
   if (stats && stats.reviewCount > 0) {
     ldjson.aggregateRating = {
@@ -488,7 +487,7 @@ const ProductTemplate = async ({
     }
   }
 
-  // Per-review entries for rich snippets — only when real reviews exist.
+  // Per-review entries for rich snippets â€” only when real reviews exist.
   if (reviews && reviews.length > 0) {
     ldjson.review = reviews.map((r) => {
       const customerName = r.customer?.first_name
@@ -512,9 +511,40 @@ const ProductTemplate = async ({
 
   return (
     <>
-      {lcpImageUrl && (
-        <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />
-      )}
+      {lcpImageUrl && (() => {
+        // Build the same srcset the <ProductLcpImage> component uses so the
+        // browser treats the preloaded resource as the SAME as the <img>'s
+        // src â€” otherwise it fetches them as two separate resources (one for
+        // the preload, one for the img). imagesrcset + imagesizes is the
+        // correct way to preload responsive images per web.dev/preload-critical-assets.
+        const isOptimizable =
+          !lcpImageUrl.startsWith("data:") &&
+          (lcpImageUrl.startsWith("/") ||
+            lcpImageUrl.startsWith("https://cdn.zmobiles.pk") ||
+            lcpImageUrl.startsWith("http://localhost"))
+
+        const imgSrcSet = isOptimizable
+          ? [640, 828, 1080]
+              .map((w) => {
+                const p = new URLSearchParams({ url: lcpImageUrl, w: String(w), q: "75" })
+                return `/_next/image?${p.toString()} ${w}w`
+              })
+              .join(", ")
+          : undefined
+
+        return (
+          <link
+            rel="preload"
+            as="image"
+            href={lcpImageUrl}
+            // @ts-expect-error â€” imagesrcset / imagesizes are valid but not yet in React's types
+            imagesrcset={imgSrcSet}
+            imagesizes="(min-width: 1024px) 40vw, 50vw"
+            fetchPriority="high"
+          />
+        )
+      })()}
+
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
@@ -529,7 +559,7 @@ const ProductTemplate = async ({
         currency={currency}
       />
 
-      {/* Top breadcrumb — always rendered above the gallery so the user
+      {/* Top breadcrumb â€” always rendered above the gallery so the user
           sees the path even before the page settles. */}
       <div className="container-anvogue pt-2 md:pt-4">
         <ProductInfo product={product} mode="top" />
@@ -567,7 +597,6 @@ const ProductTemplate = async ({
               whatsappNumber={whatsappNumber}
               whatsappBuyNowEnabled={whatsappBuyNowEnabled}
             />
-            {adSlot}
             {bundles && bundles.length > 0 && (
               <BundleCard bundles={bundles} />
             )}
@@ -577,18 +606,18 @@ const ProductTemplate = async ({
 
         {/* Desktop Layout (hidden lg:grid) */}
         <div className="hidden lg:grid lg:grid-cols-[1.15fr_1fr] gap-3 lg:gap-4">
-          {/* Gallery — left column */}
+          {/* Gallery â€” left column */}
           <div className="w-full">
             {makeGalleryNode(false)}
           </div>
 
-          {/* Info / actions — right column */}
+          {/* Info / actions â€” right column */}
           <div className="w-full">
             <div className="flex flex-col gap-3.5 lg:sticky lg:top-20 self-start">
               {/* Desktop only: title + featured specs in right column */}
               <ProductInfo product={product} mode="main" />
 
-              {/* Pre-order banner — self-renders nothing unless
+              {/* Pre-order banner â€” self-renders nothing unless
                   metadata.preorder_open is set and launch_date is in
                   the future. Placed above the CTA so the countdown
                   reads naturally before the price/buttons. */}
@@ -602,7 +631,6 @@ const ProductTemplate = async ({
                 whatsappNumber={whatsappNumber}
                 whatsappBuyNowEnabled={whatsappBuyNowEnabled}
               />
-              {adSlot}
 
               {bundles && bundles.length > 0 && (
                 <BundleCard bundles={bundles} />
@@ -614,7 +642,7 @@ const ProductTemplate = async ({
         </div>
       </div>
 
-      {/* Description + Reviews — sequential layout with sticky nav */}
+      {/* Description + Reviews â€” sequential layout with sticky nav */}
       <div id="reviews" className="container-anvogue my-6 md:my-10 scroll-mt-16">
         <ProductDescriptionTabs
           richDescription={(product.metadata as any)?.rich_description || null}
@@ -628,9 +656,8 @@ const ProductTemplate = async ({
           inTheBox={(product.metadata as any)?.in_the_box}
           reviewCount={stats?.reviewCount}
           template={specTemplateResult?.template ?? null}
-          reviewsSlot={
-            <ProductReviews productId={product.id} productTitle={product.title} />
-          }
+          productId={product.id}
+          productTitle={product.title}
           similarBudgetSlot={renderInlineSection("Similar Price", similarBudget)}
           similarSpecsSlot={renderInlineSection("Similar Specs", similarSpecs)}
           sameBrandSlot={renderInlineSection(`More from ${brand?.name || "Brand"}`, sameBrand)}

@@ -1,4 +1,4 @@
-const checkEnvVariables = require("./check-env-variables")
+﻿const checkEnvVariables = require("./check-env-variables")
 
 checkEnvVariables()
 
@@ -13,25 +13,31 @@ const S3_PATHNAME = process.env.MEDUSA_CLOUD_S3_PATHNAME
  */
 const nextConfig = {
   reactStrictMode: true,
-  trailingSlash: true,
   // Don't advertise the framework (minor hardening) + keep gzip on origin.
   poweredByHeader: false,
   compress: true,
   // Tree-shake big "barrel" packages so importing one helper/icon doesn't
   // pull the whole library into the shared bundle (cuts unused JS).
   experimental: {
+    // `inlineCss` was REMOVED on purpose (Jul 2026). Measured on the live
+    // PDP it inlined ~204KB of CSS into <head> AND duplicated the same
+    // ~201KB inside the RSC flight payload â€” ~405KB (48%) of every single
+    // HTML response was CSS, re-downloaded on every page view with zero
+    // browser caching. External stylesheets are cached once (immutable)
+    // and served from Cloudflare, which is far cheaper than the saved
+    // round-trip.
     // Client-side router cache. Without this (Next 15 default = 0s for
-    // dynamic pages) EVERY navigation — even going BACK to a page you
-    // just saw — re-renders on the server and shows the skeleton again.
+    // dynamic pages) EVERY navigation â€” even going BACK to a page you
+    // just saw â€” re-renders on the server and shows the skeleton again.
     // With it, pages visited in the last N seconds are served instantly
     // from the in-browser cache, which is what makes navigation feel
     // like a native app. Prices/stock can be up to 60s stale during a
-    // session — acceptable for this store.
+    // session â€” acceptable for this store.
     staleTimes: {
       dynamic: 60,
       static: 300,
     },
-    // Route-specific CSS chunks instead of one big shared stylesheet — each
+    // Route-specific CSS chunks instead of one big shared stylesheet â€” each
     // page only loads the CSS it actually needs (smaller, faster first
     // paint). Same setting our fast sister-site foodiespakistan uses.
     cssChunking: "strict",
@@ -43,6 +49,7 @@ const nextConfig = {
       "@headlessui/react",
       "react-country-flag",
       "yet-another-react-lightbox",
+      "lenis",
     ],
   },
   logging: {
@@ -58,36 +65,36 @@ const nextConfig = {
   },
   images: {
     // Serve optimized images INLINE (display in browser) instead of Next's
-    // default `attachment` — which forced a DOWNLOAD when an image was
-    // opened in a new tab. Safe: we only optimize our own images from our
-    // own CDN, not arbitrary user uploads.
+    // default `attachment` â€” which forced a DOWNLOAD when an image was
+    // opened in a new tab. Safe: we only optimize our own product images
+    // from our own CDN, not arbitrary user uploads.
     contentDispositionType: "inline",
     // Allowed `quality` values for /_next/image. IMPORTANT: any `quality`
-    // prop NOT in this list makes the optimizer return HTTP 400 → a BROKEN
+    // prop NOT in this list makes the optimizer return HTTP 400 â†’ a BROKEN
     // image (this exact footgun blanked the mobile PDP main image when a
     // component used q=80). Keep this permissive so no quality value can
     // break an image.
     qualities: [50, 60, 70, 75, 80, 85, 90, 95, 100],
-    // WebP ONLY — AVIF dropped on purpose. This origin is a single VPS
+    // WebP ONLY â€” AVIF dropped on purpose. This origin is a single VPS
     // that ALSO runs the backend + CDN, and Next resizes images on-demand
-    // with sharp. AVIF encoding costs 5-10× the CPU of WebP, so rapid
+    // with sharp. AVIF encoding costs 5-10Ã— the CPU of WebP, so rapid
     // navigation (each PDP = gallery + thumbs + related + FBT images)
     // generated a burst of expensive AVIF jobs that saturated the CPU and
-    // queued the actual SSR page renders behind them — the exact "stuck
+    // queued the actual SSR page renders behind them â€” the exact "stuck
     // skeleton after 6-7 pages, worst on PDP" symptom. WebP is ~smaller
     // than the JPEG/PNG source and decodes everywhere; the tiny size
     // difference vs AVIF is irrelevant once Cloudflare caches the result.
     formats: ["image/webp"],
     // Fewer candidate widths = fewer distinct resize jobs AND a higher CDN
     // cache-hit rate (every extra width is another cold sharp job). Dropped
-    // only the huge 2048/3840 desktop-retina widths — pointless on a
+    // only the huge 2048/3840 desktop-retina widths â€” pointless on a
     // mobile-first store and the most expensive to encode. imageSizes is
     // LEFT at Next's default so tiny icons (flags/avatars at 16-32px) stay
     // crisp; the real CPU win is AVIF-drop + dropping 2048/3840.
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     minimumCacheTTL: 60 * 60 * 24 * 30,
     remotePatterns: [
-      // This store's production CDN — explicit so optimization works even
+      // This store's production CDN â€” explicit so optimization works even
       // if NEXT_PUBLIC_CDN_URL isn't present at build time.
       { protocol: "https", hostname: "cdn.zmobiles.pk" },
       {
@@ -98,7 +105,7 @@ const nextConfig = {
         // Self-hosted CDN (development)
         protocol: "http",
         hostname: "localhost",
-        port: "3091",
+        port: "3061",
       },
       {
         protocol: "https",
@@ -121,7 +128,7 @@ const nextConfig = {
             },
           ]
         : []),
-      // Self-hosted CDN (production) — add your CDN domain here
+      // Self-hosted CDN (production) â€” add your CDN domain here
       ...(process.env.NEXT_PUBLIC_CDN_URL
         ? [
             {
@@ -149,7 +156,7 @@ const nextConfig = {
   /**
    * Baseline security headers for every storefront response.
    *
-   * Deliberately conservative — no Content-Security-Policy here, since
+   * Deliberately conservative â€” no Content-Security-Policy here, since
    * a wrong CSP silently breaks inline scripts / analytics / payment
    * widgets. Add CSP at the nginx layer once it can be tested against
    * the live page. These headers are all safe with the current app.
@@ -157,7 +164,7 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Self-hosted icon fonts — versioned-by-path, safe to cache
+        // Self-hosted icon fonts â€” versioned-by-path, safe to cache
         // forever (browser + Cloudflare). Saves ~460KB on repeat visits.
         source: "/icons/phosphor/:path*",
         headers: [
@@ -167,6 +174,19 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // Leaflet marker icons â€” static assets, never change (pinned to
+        // leaflet@1.9.4 in package.json). Long cache avoids re-downloading
+        // the 3 small PNGs on every checkout session.
+        source: "/leaflet-images/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+
       {
         source: "/:path*",
         headers: [
@@ -190,7 +210,7 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      // Retired /account/setup wizard — points old links at the
+      // Retired /account/setup wizard â€” points old links at the
       // dashboard instead of crashing the parallel-slot prerender.
       {
         source: "/account/setup",
@@ -216,52 +236,6 @@ const nextConfig = {
       {
         source: "/:country([a-z]{2})/search",
         destination: "/:country",
-        permanent: true,
-      },
-      // Core Page 301 Redirects
-      {
-        source: "/terms-conditions/",
-        destination: "/terms/",
-        permanent: true,
-      },
-      {
-        source: "/:country([a-z]{2})/terms-conditions/",
-        destination: "/:country/terms/",
-        permanent: true,
-      },
-      {
-        source: "/contact-us/",
-        destination: "/contact/",
-        permanent: true,
-      },
-      {
-        source: "/:country([a-z]{2})/contact-us/",
-        destination: "/:country/contact/",
-        permanent: true,
-      },
-      {
-        source: "/about-us/",
-        destination: "/about/",
-        permanent: true,
-      },
-      {
-        source: "/:country([a-z]{2})/about-us/",
-        destination: "/:country/about/",
-        permanent: true,
-      },
-      {
-        source: "/privacy-policy/",
-        destination: "/privacy/",
-        permanent: true,
-      },
-      {
-        source: "/:country([a-z]{2})/privacy-policy/",
-        destination: "/:country/privacy/",
-        permanent: true,
-      },
-      {
-        source: "/50000-80000/redmi-note-16-price-in-pakistan/",
-        destination: "/new-mobile/redmi-note-16-price-in-pakistan/",
         permanent: true,
       },
     ]

@@ -99,7 +99,9 @@ body {
   font-size: 16px;
   line-height: 26px;
   font-weight: 400;
-  scroll-behavior: smooth;
+  /* scroll-behavior is handled by Lenis (desktop wheel) and native on mobile.
+     CSS scroll-behavior: smooth is intentionally omitted — it can interfere
+     with Lenis and cause double-smoothing jank. Anchor links use JS scroll. */
 }
 
 @media (max-width: 767.98px) {
@@ -1359,3 +1361,4 @@ div:has(> select) {
 .prose [style*="text-align: center"] { text-align: center; }
 .prose [style*="text-align: right"] { text-align: right; }
 .prose [style*="text-align: left"] { text-align: left; }
+
