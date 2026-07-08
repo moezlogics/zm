@@ -1,4 +1,4 @@
-﻿const checkEnvVariables = require("./check-env-variables")
+const checkEnvVariables = require("./check-env-variables")
 
 checkEnvVariables()
 
