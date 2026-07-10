@@ -35,18 +35,23 @@ export default function robots(): MetadataRoute.Robots {
 
   const disallowPaths = [
     "/account",
+    "/account/",
     "/account/*",
     "/cart",
+    "/cart/",
     "/checkout",
+    "/checkout/",
     "/checkout/*",
     "/order/*",
     "/search",
+    "/search/",
     "/auth/*",
     "/api/*",
     // The compare flow is shopper-state-dependent and the URLs
     // carry an arbitrary list of product handles — every visit
     // is unique, so let search engines ignore it entirely.
     "/compare",
+    "/compare/",
     "/compare*",
     // Variant-id query string is a faceted duplicate of the
     // canonical product URL — block to consolidate signal.

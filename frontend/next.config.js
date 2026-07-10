@@ -13,6 +13,7 @@ const S3_PATHNAME = process.env.MEDUSA_CLOUD_S3_PATHNAME
  */
 const nextConfig = {
   reactStrictMode: true,
+  trailingSlash: true,
   // Don't advertise the framework (minor hardening) + keep gzip on origin.
   poweredByHeader: false,
   compress: true,
@@ -218,8 +219,18 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/account/setup/",
+        destination: "/account/",
+        permanent: true,
+      },
+      {
         source: "/:country([a-z]{2})/account/setup",
         destination: "/:country/account",
+        permanent: true,
+      },
+      {
+        source: "/:country([a-z]{2})/account/setup/",
+        destination: "/:country/account/",
         permanent: true,
       },
       // The standalone /search page was removed in favour of the
@@ -234,8 +245,18 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/search/",
+        destination: "/",
+        permanent: true,
+      },
+      {
         source: "/:country([a-z]{2})/search",
         destination: "/:country",
+        permanent: true,
+      },
+      {
+        source: "/:country([a-z]{2})/search/",
+        destination: "/:country/",
         permanent: true,
       },
     ]
