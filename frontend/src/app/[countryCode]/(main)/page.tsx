@@ -14,6 +14,20 @@ import { listBrands } from "@lib/data/brands"
 import MobileBrandsSidebar from "@modules/store/components/mobile-brands-sidebar"
 import LazyGoogleAd from "@modules/common/components/google-ad/lazy-google-ad"
 
+// ── ISR: let the CDN hold the homepage ───────────────────────────────
+// The homepage is anonymous and identical for every first-time visitor
+// (catalog, banners, brand list — no per-user content; cart badge + login
+// state hydrate client-side via UserDataProvider). Without an explicit
+// `revalidate`, Next renders it on-demand and stamps the response
+// `private, no-store`, which OVERRIDES the `public, s-maxage=300` header
+// the middleware sets for anonymous traffic — so Cloudflare returns
+// Cf-Cache-Status: DYNAMIC and every first paint waits on a full origin
+// render (~20 backend calls). ISR pre-renders the shared shell and lets
+// the edge serve it; the PDP + collection routes already do exactly this.
+// 5-min staleness for price/stock is acceptable (admin edits purge via
+// revalidateTag). The layout is cookie-free and the SDK wrapper no longer
+// reads cookies on render, so this route is static-safe (no 500).
+export const revalidate = 300
 
 /**
  * Homepage metadata comes from admin site-settings (SEO section) so operators

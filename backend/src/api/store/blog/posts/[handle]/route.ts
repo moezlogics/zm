@@ -9,7 +9,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 
   const [post] = await blog.listBlogPosts(
     { handle, status: "published" },
-    { relations: ["categories"], take: 1 }
+    { relations: ["categories", "author"], take: 1 }
   )
 
   if (!post) {

@@ -8,10 +8,10 @@ import BlogListClient from "@modules/blog/blog-list-client"
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings()
   const siteName = settings.site_name || "Blog"
-  const title = settings.seo_blog_title || "Journal"
+  const title = settings.seo_blog_title || `${siteName} Blog`
   const description =
     settings.seo_blog_description ||
-    "Stories, style notes and editorial picks from our team."
+    "Latest mobile phone news, reviews, comparisons and buying guides in Pakistan."
   const url = canonicalUrl("/blog")
 
   return {
@@ -44,11 +44,11 @@ export default async function BlogPage() {
   ])
 
   const siteName = settings.site_name || "Blog"
-  const kicker = settings.seo_blog_kicker || "Journal"
-  const heading = settings.seo_blog_heading || "Stories & Style Notes"
+  const kicker = settings.seo_blog_kicker || "Blog"
+  const heading = settings.seo_blog_heading || "Mobile News & Reviews"
   const subline =
     settings.seo_blog_description ||
-    "Discover our latest articles, lookbooks and style notes."
+    "Latest mobile phone news, reviews, comparisons and buying guides in Pakistan."
 
   const jsonLd = {
     "@context": "https://schema.org",

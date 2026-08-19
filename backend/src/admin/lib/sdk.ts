@@ -39,6 +39,22 @@ export const blogApi = {
   deleteCategory: async (id: string) => {
     return sdk.client.fetch(`/admin/blog/categories/${id}`, { method: "DELETE" })
   },
+  listAuthors: async (params?: any) => {
+    const qs = params ? new URLSearchParams(params).toString() : ""
+    return sdk.client.fetch(`/admin/blog/authors${qs ? `?${qs}` : ""}`, { method: "GET" })
+  },
+  getAuthor: async (id: string) => {
+    return sdk.client.fetch(`/admin/blog/authors/${id}`, { method: "GET" })
+  },
+  createAuthor: async (data: any) => {
+    return sdk.client.fetch(`/admin/blog/authors`, { method: "POST", body: data })
+  },
+  updateAuthor: async (id: string, data: any) => {
+    return sdk.client.fetch(`/admin/blog/authors/${id}`, { method: "POST", body: data })
+  },
+  deleteAuthor: async (id: string) => {
+    return sdk.client.fetch(`/admin/blog/authors/${id}`, { method: "DELETE" })
+  },
   uploadImage: async (file: File) => {
     return cdnUpload(file)
   }

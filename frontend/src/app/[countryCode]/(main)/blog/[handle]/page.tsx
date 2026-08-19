@@ -1,10 +1,13 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Image from "next/image"
-import { getBlogPostByHandle } from "@lib/data/blog"
+import { getBlogPostByHandle, listBlogPosts } from "@lib/data/blog"
 import { getSiteSettings } from "@lib/data/site-settings"
 import { canonicalUrl } from "@lib/util/seo-url"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { AuthorByline, AuthorBox } from "@modules/blog/author-box"
+import ShareButtons from "@modules/blog/share-buttons"
+import { injectInternalLinks } from "@modules/blog/auto-internal-links"
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -101,9 +104,11 @@ function estimateReadTime(html: string | null) {
 
 export default async function BlogPostPage(props: Props) {
   const params = await props.params
-  const [post, settings] = await Promise.all([
+  const [post, settings, candidateList] = await Promise.all([
     getBlogPostByHandle(params.handle),
     getSiteSettings(),
+    // Pool of recent posts scored for the in-content "Also Read" links.
+    listBlogPosts({ limit: 30 }).then((r) => r.posts).catch(() => []),
   ])
 
   if (!post) {
@@ -111,6 +116,19 @@ export default async function BlogPostPage(props: Props) {
   }
 
   const siteName = settings.site_name || "Blog"
+
+  // Author authority signals (schema.org sameAs) for the Person author.
+  const authorSameAs = post.author
+    ? [
+        post.author.website_url,
+        post.author.twitter_url,
+        post.author.linkedin_url,
+        post.author.facebook_url,
+      ].filter(Boolean)
+    : []
+
+  // In-content internal links ("Also Read"), injected between paragraphs.
+  const contentWithLinks = injectInternalLinks(post.content, post, candidateList)
 
   // JSON-LD structured data for BlogPosting — uses live site settings so the
   // publisher reflects whatever the admin has configured (name + logo).
@@ -127,10 +145,18 @@ export default async function BlogPostPage(props: Props) {
     url: canonicalUrl(`/blog/${post.handle}`),
     datePublished: post.published_at || post.created_at,
     dateModified: post.updated_at,
-    author: {
-      "@type": "Organization",
-      name: siteName,
-    },
+    author: post.author
+      ? {
+          "@type": "Person",
+          name: post.author.name,
+          url: canonicalUrl(`/blog/author/${post.author.handle}`),
+          ...(post.author.role ? { jobTitle: post.author.role } : {}),
+          ...(authorSameAs.length ? { sameAs: authorSameAs } : {}),
+        }
+      : {
+          "@type": "Organization",
+          name: siteName,
+        },
     publisher: {
       "@type": "Organization",
       name: siteName,
@@ -267,14 +293,13 @@ export default async function BlogPostPage(props: Props) {
         {/* Title */}
         <h1 className="heading1 text-brand-black mb-4">{post.title}</h1>
 
-        {/* Meta: date + read time */}
-        <div className="flex items-center gap-3 caption1 text-brand-secondary mb-8 pb-8 border-b border-line">
-          <time dateTime={post.published_at || post.created_at}>
-            {formatDate(post.published_at || post.created_at)}
-          </time>
-          <span aria-hidden>·</span>
-          <span>{estimateReadTime(post.content)}</span>
-        </div>
+        {/* Byline: author (avatar + name → author page) + date + read time */}
+        <AuthorByline
+          author={post.author}
+          dateISO={post.published_at || post.created_at}
+          dateLabel={formatDate(post.published_at || post.created_at)}
+          readTime={estimateReadTime(post.content)}
+        />
 
         {/* Excerpt */}
         {post.excerpt && (
@@ -295,8 +320,16 @@ export default async function BlogPostPage(props: Props) {
             prose-pre:bg-brand-black prose-pre:text-white
             prose-strong:text-brand-black"
           // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: post.content || "" }}
+          dangerouslySetInnerHTML={{ __html: contentWithLinks }}
         />
+
+        {/* Share row */}
+        <div className="mt-10 pt-6 border-t border-line">
+          <ShareButtons handle={post.handle} title={post.title} />
+        </div>
+
+        {/* Author box (E-E-A-T) */}
+        {post.author && <AuthorBox author={post.author} />}
 
         {/* Bottom navigation */}
         <div className="mt-12 pt-8 border-t border-line">

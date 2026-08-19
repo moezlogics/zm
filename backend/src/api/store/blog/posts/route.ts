@@ -29,7 +29,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
       take: limit,
       skip: offset,
       order: { published_at: "DESC" } as any,
-      relations: ["categories"],
+      relations: ["categories", "author"],
     })
 
   // Cache normal listings/pagination. Skip caching free-text searches

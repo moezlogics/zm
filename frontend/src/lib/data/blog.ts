@@ -25,6 +25,7 @@ export type BlogPost = {
   seo_description: string | null
   seo_keywords: string | null
   categories: BlogCategory[]
+  author?: BlogAuthor | null
   created_at: string
   updated_at: string
 }
@@ -34,6 +35,21 @@ export type BlogCategory = {
   name: string
   handle: string
   description: string | null
+}
+
+export type BlogAuthor = {
+  id: string
+  name: string
+  handle: string
+  role: string | null
+  bio: string | null
+  avatar_url: string | null
+  email: string | null
+  expertise: string | null
+  twitter_url: string | null
+  linkedin_url: string | null
+  facebook_url: string | null
+  website_url: string | null
 }
 
 /**
@@ -89,6 +105,28 @@ export async function getBlogPostByHandle(
 
   const data = await res.json()
   return data.post || null
+}
+
+/**
+ * Fetch a single author profile + their published posts (author archive).
+ */
+export async function getBlogAuthorByHandle(
+  handle: string
+): Promise<{ author: BlogAuthor; posts: BlogPost[] } | null> {
+  const res = await fetch(
+    `${BACKEND_URL}/store/blog/authors/${encodeURIComponent(handle)}`,
+    {
+      headers: STORE_HEADERS,
+      next: { revalidate: 60, tags: ["blog"] },
+      cache: "force-cache",
+    }
+  )
+
+  if (!res.ok) return null
+
+  const data = await res.json()
+  if (!data.author) return null
+  return { author: data.author, posts: data.posts || [] }
 }
 
 /**

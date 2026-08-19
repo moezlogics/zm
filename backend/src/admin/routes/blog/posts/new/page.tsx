@@ -28,6 +28,8 @@ const NewPostPage = () => {
   const [seoKeywords, setSeoKeywords] = useState("")
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
+  const [authors, setAuthors] = useState<any[]>([])
+  const [selectedAuthorId, setSelectedAuthorId] = useState<string>("")
   const [saving, setSaving] = useState(false)
   const [imageUploading, setImageUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -35,6 +37,9 @@ const NewPostPage = () => {
   useEffect(() => {
     blogApi.listCategories().then((data: any) => {
       setCategories(data.categories || [])
+    })
+    blogApi.listAuthors().then((data: any) => {
+      setAuthors(data.authors || [])
     })
   }, [])
 
@@ -100,6 +105,7 @@ const NewPostPage = () => {
         seo_description: seoDescription || null,
         seo_keywords: seoKeywords || null,
         category_ids: selectedCategoryIds,
+        author_id: selectedAuthorId || null,
       })
       window.location.href = "/app/blog"
     } catch (e) {
@@ -298,6 +304,40 @@ const NewPostPage = () => {
                   </Badge>
                 ))}
               </div>
+            )}
+          </Container>
+
+          {/* Author */}
+          <Container className="p-4 mb-4">
+            <Label className="mb-2 block">Author</Label>
+            {authors.length === 0 ? (
+              <p style={{ color: "#9ca3af", fontSize: 13 }}>
+                No authors yet.{" "}
+                <a href="/app/blog/authors" style={{ color: "#2563eb" }}>
+                  Create one
+                </a>
+              </p>
+            ) : (
+              <select
+                value={selectedAuthorId}
+                onChange={(e: any) => setSelectedAuthorId(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: 6,
+                  border: "1px solid var(--border-base, #e5e7eb)",
+                  background: "transparent",
+                  fontSize: 14,
+                }}
+              >
+                <option value="">— No author —</option>
+                {authors.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {a.role ? ` · ${a.role}` : ""}
+                  </option>
+                ))}
+              </select>
             )}
           </Container>
 
