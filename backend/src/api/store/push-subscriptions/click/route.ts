@@ -45,6 +45,31 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       })
     }
 
+    // Stamp the per-recipient delivery row so CTR can be computed against
+    // real recipients, not just an aggregate counter. A click also proves
+    // the notification was shown, so backfill `shown_at` when the `shown`
+    // callback never made it through (it fires from a short-lived SW
+    // context and is easily dropped).
+    if (campaignId) {
+      try {
+        const deliveries = await (svc as any).listPushDeliveries({
+          campaign_id: campaignId,
+          endpoint,
+        })
+        const delivery = deliveries?.[0]
+        if (delivery) {
+          const patch: Record<string, any> = { id: delivery.id }
+          if (!delivery.clicked_at) patch.clicked_at = now
+          if (!delivery.shown_at) patch.shown_at = now
+          if (Object.keys(patch).length > 1) {
+            await (svc as any).updatePushDeliveries(patch)
+          }
+        }
+      } catch {
+        // best-effort — never fail the SW callback
+      }
+    }
+
     // Bump campaign click stat
     if (campaignId) {
       try {

@@ -34,6 +34,27 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       })
     }
 
+    // Stamp the per-recipient delivery row. This is what turns "the push
+    // service accepted it" into proof the device actually displayed it —
+    // the difference between `total_sent` and real delivered numbers.
+    if (campaignId) {
+      try {
+        const deliveries = await (svc as any).listPushDeliveries({
+          campaign_id: campaignId,
+          endpoint,
+        })
+        const delivery = deliveries?.[0]
+        if (delivery && !delivery.shown_at) {
+          await (svc as any).updatePushDeliveries({
+            id: delivery.id,
+            shown_at: now,
+          })
+        }
+      } catch {
+        // best-effort — never fail the SW callback
+      }
+    }
+
     // Bump campaign impression/shown count
     if (campaignId) {
       try {

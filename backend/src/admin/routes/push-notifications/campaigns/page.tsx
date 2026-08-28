@@ -101,6 +101,39 @@ async function fetchCampaigns(): Promise<{ campaigns: Campaign[] }> {
   return res.json()
 }
 
+type CampaignDiagnostics = {
+  stats: {
+    total: number
+    accepted: number
+    shown: number
+    clicked: number
+    failed: number
+    expired: number
+    invalid: number
+  }
+  rates: { shown_rate: number; click_rate: number; failure_rate: number }
+  failures: {
+    status: string
+    status_code: number | null
+    count: number
+    reason: string
+    sample_error?: string
+  }[]
+}
+
+/**
+ * Campaign diagnostics — real per-recipient outcome from the delivery
+ * log, including why the failures failed. Cheap enough to fetch on
+ * demand when a campaign row is opened.
+ */
+async function fetchCampaignDiagnostics(id: string): Promise<CampaignDiagnostics> {
+  const res = await fetch(`/admin/push-campaigns/${id}`, {
+    credentials: "include",
+  })
+  if (!res.ok) throw new Error("Failed to load campaign diagnostics")
+  return res.json()
+}
+
 async function fetchFacets(): Promise<Facets> {
   const res = await fetch("/admin/push-subscriptions/facets", {
     credentials: "include",
@@ -168,6 +201,8 @@ const Page = () => {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null)
+  const [diag, setDiag] = useState<CampaignDiagnostics | null>(null)
+  const [diagLoading, setDiagLoading] = useState(false)
   const iconRef = useRef<HTMLInputElement>(null)
 
   const imageRef = useRef<HTMLInputElement>(null)
@@ -190,6 +225,31 @@ const Page = () => {
   useEffect(() => {
     refresh().finally(() => setLoading(false))
   }, [])
+
+  // Load the delivery-log diagnostics whenever a campaign is opened.
+  useEffect(() => {
+    if (!selectedCampaign) {
+      setDiag(null)
+      return
+    }
+    let cancelled = false
+    setDiagLoading(true)
+    setDiag(null)
+    fetchCampaignDiagnostics(selectedCampaign.id)
+      .then((d) => {
+        if (!cancelled) setDiag(d)
+      })
+      .catch(() => {
+        // Campaigns sent before the delivery log existed simply have no
+        // rows — the panel shows a short explanation instead of an error.
+      })
+      .finally(() => {
+        if (!cancelled) setDiagLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedCampaign])
 
   // Live reach estimate — debounce 350ms. Server has hard cap on result
   // size so this is cheap. Only audience filters trigger it; copy/media
@@ -927,6 +987,74 @@ const Page = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Delivery diagnostics — the real per-recipient outcome,
+                  and the reason behind every failure bucket. */}
+              <div>
+                <h4 style={{ fontSize: 12, fontWeight: 600, color: A.fgSubtle, textTransform: "uppercase", marginBottom: 12 }}>
+                  Delivery Diagnostics
+                </h4>
+
+                {diagLoading && (
+                  <div style={{ fontSize: 12, color: A.fgMuted }}>Loading delivery log…</div>
+                )}
+
+                {!diagLoading && !diag && (
+                  <div style={{ fontSize: 12, color: A.fgMuted, border: A.border, borderRadius: 8, padding: 12, background: A.bgSubtle }}>
+                    No delivery log for this campaign. Per-recipient tracking
+                    starts with campaigns sent after this update.
+                  </div>
+                )}
+
+                {!diagLoading && diag && diag.stats.total === 0 && (
+                  <div style={{ fontSize: 12, color: A.fgMuted, border: A.border, borderRadius: 8, padding: 12, background: A.bgSubtle }}>
+                    No delivery rows recorded for this campaign.
+                  </div>
+                )}
+
+                {!diagLoading && diag && diag.stats.total > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                      {[
+                        { label: "Accepted", value: diag.stats.accepted, color: A.fg },
+                        { label: "Confirmed shown", value: diag.stats.shown, color: "#a78bfa" },
+                        { label: "Clicked", value: diag.stats.clicked, color: "#22c55e" },
+                        { label: "Not delivered", value: diag.stats.failed + diag.stats.expired + diag.stats.invalid, color: A.danger },
+                      ].map((s) => (
+                        <div key={s.label} style={{ border: A.border, padding: 10, borderRadius: 8, background: A.bgSubtle }}>
+                          <div style={{ fontSize: 11, color: A.fgSubtle }}>{s.label}</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: s.color }}>{s.value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {diag.failures.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: A.fgSubtle }}>
+                          Why {diag.stats.total - diag.stats.accepted} didn&apos;t go through
+                        </div>
+                        {diag.failures.map((f) => (
+                          <div
+                            key={`${f.status}:${f.status_code}`}
+                            style={{ border: A.border, borderRadius: 8, padding: 10, background: A.bgSubtle }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                              <Badge color={f.status === "invalid" ? "red" : f.status === "expired" ? "orange" : "grey"}>
+                                {f.status.toUpperCase()}
+                                {f.status_code ? ` · ${f.status_code}` : ""}
+                              </Badge>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: A.fg }}>
+                                {f.count} subscriber{f.count === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, color: A.fgMuted, lineHeight: 1.5 }}>{f.reason}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Visual progress bar */}

@@ -178,11 +178,56 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       endpoint: t.endpoint,
       p256dh: t.p256dh,
       auth: t.auth,
+      // Carried through only so the delivery log can attribute the send
+      // to a customer; the push client itself ignores it.
+      customer_id: t.customer_id || null,
     })),
     payload
   )
 
-  // Mark expired subscriptions for pruning
+  const now = new Date()
+
+  // ── Per-recipient delivery log ───────────────────────────────────
+  // One row per subscriber so the dashboard can answer "who got it and
+  // what went wrong", and so the SW's shown/click callbacks have a row
+  // to stamp. Written in chunks to keep the insert payload sane.
+  try {
+    const rows = result.results.map(({ sub, result: r }) => ({
+      campaign_id: campaign.id,
+      subscription_id: sub.id || null,
+      endpoint: sub.endpoint,
+      customer_id: (sub as any).customer_id || null,
+      status: r.success ? "sent" : r.kind === "expired" ? "expired" : r.kind === "invalid" ? "invalid" : "failed",
+      status_code: r.statusCode ?? null,
+      // Truncated — some push services return a full HTML error page.
+      error: r.success ? null : String(r.error || "").slice(0, 500) || null,
+      attempts: r.attempts ?? 1,
+    }))
+    for (let i = 0; i < rows.length; i += 500) {
+      await (svc as any).createPushDeliveries(rows.slice(i, i + 500))
+    }
+  } catch (e) {
+    logger?.warn?.(
+      `[PushCampaign] Failed to write delivery log: ${(e as Error).message}`
+    )
+  }
+
+  // Stamp last_sent_at on everyone who actually received it. This column
+  // drives the "Last sent" dashboard field and dormant-subscriber
+  // segmentation; nothing used to write it, so it was always empty.
+  if (result.sentIds.length > 0) {
+    try {
+      await (svc as any).updatePushSubscriptions(
+        result.sentIds.map((id: string) => ({ id, last_sent_at: now }))
+      )
+    } catch (e) {
+      logger?.warn?.(
+        `[PushCampaign] Failed to stamp last_sent_at: ${(e as Error).message}`
+      )
+    }
+  }
+
+  // Dead endpoints (404/410) — remove them.
   if (result.expiredIds.length > 0) {
     try {
       await (svc as any).deletePushSubscriptions(result.expiredIds)
@@ -193,13 +238,36 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     }
   }
 
+  // Permanently rejected (400/403/413 — usually a VAPID-key mismatch).
+  // Deactivate rather than delete: the row stays auditable, but it stops
+  // being targeted, which is what keeps every future campaign from
+  // re-failing against the same hopeless endpoints.
+  if (result.invalidIds.length > 0) {
+    try {
+      await (svc as any).updatePushSubscriptions(
+        result.invalidIds.map((id: string) => ({ id, is_active: false }))
+      )
+    } catch (e) {
+      logger?.warn?.(
+        `[PushCampaign] Failed to deactivate ${result.invalidIds.length} invalid subs: ${(e as Error).message}`
+      )
+    }
+  }
+
+  if (result.failed > 0) {
+    logger?.info?.(
+      `[PushCampaign ${campaign.id}] sent=${result.sent} failed=${result.failed} ` +
+        `breakdown=${JSON.stringify(result.failureBreakdown)}`
+    )
+  }
+
   // Update campaign with final stats
   await (svc as any).updatePushCampaigns({
     id: campaign.id,
     total_sent: result.sent,
     total_failed: result.failed,
-    status: result.failed === result.total ? "failed" : "sent",
-    sent_at: new Date(),
+    status: result.sent === 0 && result.total > 0 ? "failed" : "sent",
+    sent_at: now,
   })
 
   res.json({
@@ -209,5 +277,9 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     total_sent: result.sent,
     total_failed: result.failed,
     expired_pruned: result.expiredIds.length,
+    deactivated_invalid: result.invalidIds.length,
+    // Surfaced so the admin can see WHY a send underperformed instead of
+    // just a failure count (e.g. "invalid:403" ⇒ VAPID keys were rotated).
+    failure_breakdown: result.failureBreakdown,
   })
 }
