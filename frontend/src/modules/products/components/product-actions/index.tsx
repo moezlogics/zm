@@ -315,11 +315,11 @@ export default function ProductActions({
   }
 
   // ── Selling toggle (admin: product.metadata.for_sale) ──────────────
-  // Disabled by default (unset / null / undefined / false). Only enabled when
-  // explicitly configured as true / "true" in metadata.
+  // Enabled by default (unset / null / undefined / true). Only disabled when
+  // explicitly configured as false / "false" in metadata.
   const forSale =
-    (product.metadata as any)?.for_sale === true ||
-    (product.metadata as any)?.for_sale === "true"
+    (product.metadata as any)?.for_sale !== false &&
+    (product.metadata as any)?.for_sale !== "false"
   // Compare defaults ON (only an explicit `false` hides it).
   const comparable = (product.metadata as any)?.comparable !== false
 

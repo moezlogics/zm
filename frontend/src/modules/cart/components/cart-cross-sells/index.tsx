@@ -51,8 +51,8 @@ export default function CartCrossSells({ cart }: { cart: HttpTypes.StoreCart }) 
         })
 
         const isSellable = (p: HttpTypes.StoreProduct) =>
-          (p.metadata as any)?.for_sale === true ||
-          (p.metadata as any)?.for_sale === "true"
+          (p.metadata as any)?.for_sale !== false &&
+          (p.metadata as any)?.for_sale !== "false"
 
         // Filter out products already in cart and products not for sale
         const cartProductIds = new Set(cart.items?.map((i) => i.product_id) || [])
