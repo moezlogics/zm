@@ -50,17 +50,27 @@ export default function CartCrossSells({ cart }: { cart: HttpTypes.StoreCart }) 
           queryParams,
         })
 
-        // Filter out products already in cart
+        const isSellable = (p: HttpTypes.StoreProduct) =>
+          (p.metadata as any)?.for_sale === true ||
+          (p.metadata as any)?.for_sale === "true"
+
+        // Filter out products already in cart and products not for sale
         const cartProductIds = new Set(cart.items?.map((i) => i.product_id) || [])
-        const filtered = response.products.filter((p) => !cartProductIds.has(p.id!))
+        const filtered = response.products.filter(
+          (p) => !cartProductIds.has(p.id!) && isSellable(p)
+        )
 
         // If no related products, fallback to recent products
         if (filtered.length === 0) {
           const fallback = await listProducts({
             regionId: cart.region_id,
-            queryParams: { limit: 3, is_giftcard: false },
+            queryParams: { limit: 6, is_giftcard: false },
           })
-          setProducts(fallback.response.products.filter((p) => !cartProductIds.has(p.id!)).slice(0, 2))
+          setProducts(
+            fallback.response.products
+              .filter((p) => !cartProductIds.has(p.id!) && isSellable(p))
+              .slice(0, 2)
+          )
         } else {
           setProducts(filtered.slice(0, 2))
         }
