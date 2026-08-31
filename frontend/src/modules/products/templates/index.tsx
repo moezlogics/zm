@@ -1,4 +1,4 @@
-﻿import React, { Suspense } from "react"
+import React, { Suspense } from "react"
 
 import ImageGalleryBridge from "@modules/products/components/image-gallery/gallery-bridge"
 import ProductLcpImage from "@modules/products/components/product-lcp-image"
@@ -21,6 +21,7 @@ import { getProductPrice } from "@lib/util/get-product-price"
 import { getProductPath } from "@lib/util/product"
 import { canonicalUrl } from "@lib/util/seo-url"
 
+import LazyGoogleAd from "@modules/common/components/google-ad/lazy-google-ad"
 import dynamic from "next/dynamic"
 
 const FrequentlyBoughtTogether = dynamic(
@@ -642,7 +643,12 @@ const ProductTemplate = async ({
         </div>
       </div>
 
-      {/* Description + Reviews â€” sequential layout with sticky nav */}
+      {/* AdSense slot between main product view and description */}
+      <div className="container-anvogue my-4 md:my-6">
+        <LazyGoogleAd />
+      </div>
+
+      {/* Description + Reviews — sequential layout with sticky nav */}
       <div id="reviews" className="container-anvogue my-6 md:my-10 scroll-mt-16">
         <ProductDescriptionTabs
           richDescription={(product.metadata as any)?.rich_description || null}
@@ -668,6 +674,11 @@ const ProductTemplate = async ({
       <Suspense fallback={null}>
         <FrequentlyBoughtTogether product={product} countryCode={countryCode} />
       </Suspense>
+
+      {/* Bottom AdSense slot */}
+      <div className="container-anvogue my-6 md:my-8">
+        <LazyGoogleAd />
+      </div>
     </>
   )
 }

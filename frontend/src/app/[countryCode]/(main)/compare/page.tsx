@@ -10,6 +10,7 @@ import { formatSpecLabel } from "@lib/util/format-spec"
 import { getFirstResolvedTemplate } from "@lib/data/spec-templates"
 import { SpecTemplate } from "@lib/util/spec-template"
 import CompareInteractive from "@modules/compare/components/compare-interactive"
+import LazyGoogleAd from "@modules/common/components/google-ad/lazy-google-ad"
 
 export const metadata: Metadata = {
   title: "Compare Products",
@@ -258,6 +259,11 @@ export default async function ComparePage({
         </div>
       )}
 
+      {/* Google AdSense slot */}
+      <div className="my-6">
+        <LazyGoogleAd />
+      </div>
+
       {/* Interactive Slots and Search Bar */}
       <CompareInteractive
         products={products}
@@ -400,6 +406,11 @@ export default async function ComparePage({
       <p className="text-[10px] text-ink/40 mt-4 leading-normal">
         Specifications are sourced from the product database. Highlighted rows indicate values that differ between the selected products.
       </p>
+
+      {/* Bottom Google AdSense slot */}
+      <div className="my-8">
+        <LazyGoogleAd />
+      </div>
     </div>
   )
 }

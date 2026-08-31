@@ -312,6 +312,11 @@ const StoreTemplate = async ({
               productsIds={productsIds}
             />
           </Suspense>
+
+          {/* Bottom AdSense slot below product grid */}
+          <div className="mt-8 mb-4">
+            <LazyGoogleAd />
+          </div>
         </div>
       </div>
     </div>

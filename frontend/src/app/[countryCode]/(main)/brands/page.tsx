@@ -5,6 +5,7 @@ import { getSiteSettings } from "@lib/data/site-settings"
 import { canonicalUrl, ROBOTS_INDEX } from "@lib/util/seo-url"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { buildBrandPath } from "@lib/util/brand-path"
+import LazyGoogleAd from "@modules/common/components/google-ad/lazy-google-ad"
 
 type Props = { params: Promise<{ countryCode: string }> }
 
@@ -97,6 +98,11 @@ export default async function BrandsPage({ params }: Props) {
             Discover products from the world&apos;s most trusted and innovative
             brands.
           </p>
+        </div>
+
+        {/* Google AdSense slot */}
+        <div className="my-6">
+          <LazyGoogleAd />
         </div>
 
         {topBrands.length > 0 ? (

@@ -195,6 +195,11 @@ export default async function Home(props: {
         </div>
       </div>
 
+      {/* Bottom AdSense slot */}
+      <div className="my-8">
+        <LazyGoogleAd />
+      </div>
+
       {/* Homepage Bottom Content (Full-width below sidebar & products) */}
       {settings.page_home_content && (
         <div className="py-12 mt-8 border-t border-line/45">

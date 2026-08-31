@@ -4,6 +4,7 @@ import { getSiteSettings } from "@lib/data/site-settings"
 import { getBaseURL } from "@lib/util/env"
 import { ROBOTS_INDEX, canonicalUrl } from "@lib/util/seo-url"
 import BlogListClient from "@modules/blog/blog-list-client"
+import LazyGoogleAd from "@modules/common/components/google-ad/lazy-google-ad"
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings()
@@ -76,7 +77,7 @@ export default async function BlogPage() {
       />
 
       {/* Page header */}
-      <div className="text-center mb-12 md:mb-16">
+      <div className="text-center mb-8 md:mb-12">
         <span className="text-sub-display text-brand-secondary2 has-line-before">
           {kicker}
         </span>
@@ -86,8 +87,18 @@ export default async function BlogPage() {
         </p>
       </div>
 
+      {/* Google AdSense slot */}
+      <div className="my-6">
+        <LazyGoogleAd />
+      </div>
+
       {/* Client-side filterable list */}
       <BlogListClient posts={posts} categories={categories} />
+
+      {/* Bottom Google AdSense slot */}
+      <div className="mt-12">
+        <LazyGoogleAd />
+      </div>
     </div>
   )
 }

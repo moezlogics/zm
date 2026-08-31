@@ -8,6 +8,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import { AuthorByline, AuthorBox } from "@modules/blog/author-box"
 import ShareButtons from "@modules/blog/share-buttons"
 import { injectInternalLinks } from "@modules/blog/auto-internal-links"
+import LazyGoogleAd from "@modules/common/components/google-ad/lazy-google-ad"
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -308,6 +309,11 @@ export default async function BlogPostPage(props: Props) {
           </p>
         )}
 
+        {/* Top AdSense slot */}
+        <div className="my-6">
+          <LazyGoogleAd />
+        </div>
+
         {/* Content */}
         <div
           className="prose prose-lg max-w-none
@@ -322,6 +328,11 @@ export default async function BlogPostPage(props: Props) {
           // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{ __html: contentWithLinks }}
         />
+
+        {/* Bottom AdSense slot */}
+        <div className="my-8">
+          <LazyGoogleAd />
+        </div>
 
         {/* Share row */}
         <div className="mt-10 pt-6 border-t border-line">

@@ -14,14 +14,14 @@ const AD_CLIENT = "ca-pub-8616277671572207"
 const DEFAULT_SLOT = "6428686902"
 
 /**
- * AdSense slot — loads ONLY after:
- *   1. document `load` (browser tab spinner finished)
- *   2. slot is near the viewport (IntersectionObserver)
- * Then pushes to `window.adsbygoogle` so impressions still register.
+ * AdSense slot — loads seamlessly with fallback:
+ *   1. document interactive / loaded
+ *   2. slot is near the viewport (IntersectionObserver with 400px margin or fallback timer)
+ * Then safely pushes to `window.adsbygoogle`.
  */
 export default function GoogleAd({
   slot = DEFAULT_SLOT,
-  minHeight = 100,
+  minHeight = 90,
   className = "",
 }: GoogleAdProps) {
   const pathname = usePathname()
@@ -44,15 +44,17 @@ export default function GoogleAd({
         return
       }
       if (ins.getBoundingClientRect().width === 0) {
-        if (tries++ < 25) timer = setTimeout(tryFill, 150)
+        if (tries++ < 30) timer = setTimeout(tryFill, 100)
         return
       }
       try {
         const w = window as Window & { adsbygoogle?: unknown[] }
-        ;(w.adsbygoogle = w.adsbygoogle || []).push({})
+        w.adsbygoogle = w.adsbygoogle || []
+        w.adsbygoogle.push({})
         pushed.current = true
-      } catch {
-        if (tries++ < 25) timer = setTimeout(tryFill, 200)
+      } catch (err) {
+        console.warn("adsbygoogle push error:", err)
+        if (tries++ < 30) timer = setTimeout(tryFill, 200)
       }
     }
 
@@ -61,12 +63,12 @@ export default function GoogleAd({
         .then(() => ensureAdSenseLoaded(AD_CLIENT))
         .then(() => tryFill())
         .catch(() => {
-          if (tries++ < 25) timer = setTimeout(tryFill, 300)
+          if (tries++ < 30) timer = setTimeout(tryFill, 250)
         })
     }
 
     const wrapper = insRef.current?.parentElement
-    if (wrapper && "IntersectionObserver" in window) {
+    if (wrapper && typeof window !== "undefined" && "IntersectionObserver" in window) {
       observer = new IntersectionObserver(
         (entries) => {
           if (entries.some((e) => e.isIntersecting)) {
@@ -74,11 +76,13 @@ export default function GoogleAd({
             startFill()
           }
         },
-        { rootMargin: "320px 0px" }
+        { rootMargin: "400px 0px" }
       )
       observer.observe(wrapper)
+      // Safety timeout: if IntersectionObserver doesn't fire within 1.2s, start fill anyway
+      timer = setTimeout(startFill, 1200)
     } else {
-      timer = setTimeout(startFill, 500)
+      timer = setTimeout(startFill, 300)
     }
 
     return () => {
@@ -90,8 +94,7 @@ export default function GoogleAd({
 
   return (
     <div
-      key={pathname}
-      className={`w-full my-6 flex justify-center items-center ${className}`}
+      className={`w-full my-4 md:my-6 flex justify-center items-center overflow-hidden ${className}`}
       style={{ minHeight }}
     >
       <ins
