@@ -7,18 +7,31 @@
  * ISR-cacheable HTML). This component then applies sort / price / stock /
  * spec filters and pagination CLIENT-SIDE by showing, hiding and
  * re-ordering the server-rendered cards based on the URL query. Filter
- * controls (SortDropdown, ShopFilters, Pagination…) keep pushing query
- * params exactly as before — nothing re-renders on the server.
+ * controls (SortDropdown, ShopFilters…) keep pushing query params exactly
+ * as before — nothing re-renders on the server.
+ *
+ * Results are revealed incrementally (batch of PRODUCT_LIMIT, auto-loaded
+ * on scroll with a "Load more" fallback) instead of paginated. Because
+ * every card is already in the DOM this costs no network round-trip, and
+ * — unlike ?page=N — it never navigates, so the URL stays clean and the
+ * scroll position is preserved.
  *
  * The URL is read through a tiny <SearchParamsBridge> wrapped in Suspense:
  * during static generation the bridge bails out (fallback null) so the
  * default listing stays in the static HTML for crawlers; on the client it
  * mounts and drives the reactive filtering.
  */
-import React, { Suspense, useEffect, useMemo, useState } from "react"
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useSearchParams } from "next/navigation"
-import { Pagination } from "@modules/store/components/pagination"
 
+/** How many cards are revealed per batch. */
 const PRODUCT_LIMIT = 12
 
 export type GridItemMeta = {
@@ -28,6 +41,8 @@ export type GridItemMeta = {
   inStock: boolean
   upcoming: boolean
   createdAt: string | null
+  /** Release/launch date from the spec sheet (epoch ms). Drives "Latest". */
+  releaseAt: number | null
   /** Raw metadata.specs (string values) for spec_* filters. */
   specs: Record<string, unknown>
 }
@@ -49,6 +64,9 @@ function applyQuery(items: GridItemMeta[], qs: string) {
   const params = new URLSearchParams(qs)
 
   const sortBy = params.get("sortBy") || "created_at"
+  // `page` is no longer produced by the UI (the grid loads incrementally),
+  // but old indexed/bookmarked ?page=N links must still land on content —
+  // we translate them into "reveal that many batches" below.
   const page = Math.max(1, parseInt(params.get("page") || "1", 10) || 1)
   const minP = params.get("minPrice") ? Number(params.get("minPrice")) : null
   const maxP = params.get("maxPrice") ? Number(params.get("maxPrice")) : null
@@ -107,13 +125,16 @@ function applyQuery(items: GridItemMeta[], qs: string) {
       return sortBy === "price_asc" ? pa - pb : pb - pa
     })
   } else {
-    // created_at (latest first) — server already delivers this order, but
-    // re-sorting keeps it correct after price-sort round trips.
-    indices.sort((a, b) => {
-      const da = items[a].createdAt ? Date.parse(items[a].createdAt!) : 0
-      const db = items[b].createdAt ? Date.parse(items[b].createdAt!) : 0
-      return db - da
-    })
+    // "Latest" = newest RELEASE date from the spec sheet, so upcoming and
+    // just-launched phones lead the grid (what shoppers mean by latest on a
+    // phone catalogue — not when the row was created in the CMS). The
+    // server already delivers this order; re-sorting keeps it correct after
+    // a price-sort round trip. `createdAt` is the fallback for products
+    // whose spec sheet has no release date.
+    const key = (i: number) =>
+      items[i].releaseAt ??
+      (items[i].createdAt ? Date.parse(items[i].createdAt!) : 0)
+    indices.sort((a, b) => key(b) - key(a))
   }
 
   return { indices, page }
@@ -130,18 +151,59 @@ export default function ProductGridClient({
   /** Backend total for the unfiltered scope (may exceed items.length). */
   totalCount: number
 }) {
-  // null → not hydrated yet → render the server default (page 1, latest).
+  // null → not hydrated yet → render the server default (first batch, latest).
   const [qs, setQs] = useState<string | null>(null)
+  // How many matching cards are currently revealed. Grows on demand — the
+  // grid never navigates, so the URL stays clean and scroll position is
+  // never lost the way it was when pagination pushed ?page=N.
+  const [visibleCount, setVisibleCount] = useState(PRODUCT_LIMIT)
+
+  const { indices, deepLinkBatches } = useMemo(() => {
+    const { indices, page } = applyQuery(items, qs ?? "")
+    return { indices, deepLinkBatches: page }
+  }, [items, qs])
+
+  // Changing any filter/sort restarts the reveal at one batch, so a
+  // narrowed result set doesn't inherit a huge scroll from the previous
+  // one. An inbound ?page=N (old pagination link) opens N batches so those
+  // URLs still show the products they used to.
+  useEffect(() => {
+    setVisibleCount(PRODUCT_LIMIT * Math.max(1, deepLinkBatches))
+  }, [qs, deepLinkBatches])
 
   const view = useMemo(() => {
-    const effectiveQs = qs ?? ""
-    const { indices, page } = applyQuery(items, effectiveQs)
-    const totalPages = Math.max(1, Math.ceil(indices.length / PRODUCT_LIMIT))
-    const safePage = Math.min(page, totalPages)
-    const start = (safePage - 1) * PRODUCT_LIMIT
-    const visible = indices.slice(start, start + PRODUCT_LIMIT)
-    return { indices, visible, totalPages, page: safePage }
-  }, [items, qs])
+    const capped = Math.min(visibleCount, indices.length)
+    return {
+      indices,
+      visible: indices.slice(0, capped),
+      hasMore: capped < indices.length,
+      remaining: indices.length - capped,
+    }
+  }, [indices, visibleCount])
+
+  const loadMore = useCallback(() => {
+    setVisibleCount((c) => c + PRODUCT_LIMIT)
+  }, [])
+
+  // Infinite loading: reveal the next batch as the sentinel nears the
+  // viewport. `rootMargin` starts the work before it is on screen so the
+  // grid feels continuous rather than stuttering at the seam. Everything
+  // is already in the DOM, so this is pure reveal — no network, no spinner.
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || !view.hasMore) return
+    if (typeof IntersectionObserver === "undefined") return
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) loadMore()
+      },
+      { rootMargin: "600px 0px" }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [view.hasMore, loadMore])
 
   const isFiltered = !!qs && qs.length > 0
   const shownTotal = isFiltered ? view.indices.length : Math.max(totalCount, view.indices.length)
@@ -166,7 +228,7 @@ export default function ProductGridClient({
       <Suspense fallback={null}>
         <SearchParamsBridge onParams={setQs} />
       </Suspense>
-      <p className="text-xs text-ink/55 mb-4">
+      <p className="text-xs text-ink/55 mb-4" aria-live="polite">
         Showing <span className="text-ink font-medium">{view.visible.length}</span>{" "}
         of {shownTotal} {shownTotal === 1 ? "product" : "products"}
       </p>
@@ -178,14 +240,26 @@ export default function ProductGridClient({
           <li key={items[i].id}>{cards[i]}</li>
         ))}
       </ul>
-      {view.totalPages > 1 && (
-        <Suspense fallback={null}>
-          <Pagination
-            data-testid="product-pagination"
-            page={view.page}
-            totalPages={view.totalPages}
-          />
-        </Suspense>
+      {view.hasMore && (
+        <div
+          ref={sentinelRef}
+          className="flex flex-col items-center gap-2 pt-8 pb-2"
+          data-testid="product-load-more"
+        >
+          {/* The observer above normally reveals the next batch before this
+              is reached; the button is the accessible, always-works path
+              (keyboard, reduced-motion, observer-less browsers). */}
+          <button
+            type="button"
+            onClick={loadMore}
+            className="px-6 py-2.5 rounded-full border border-line bg-surface text-sm font-medium text-ink hover:border-ink/40 hover:bg-surface/70 transition-colors"
+          >
+            Load more
+          </button>
+          <span className="text-xs text-ink/45">
+            {view.remaining} more {view.remaining === 1 ? "product" : "products"}
+          </span>
+        </div>
       )}
     </>
   )

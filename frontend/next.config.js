@@ -50,7 +50,6 @@ const nextConfig = {
       "@headlessui/react",
       "react-country-flag",
       "yet-another-react-lightbox",
-      "lenis",
     ],
   },
   logging: {

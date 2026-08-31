@@ -380,42 +380,32 @@ export default async function SlugPage(props: Props) {
           productsIds={product_ids}
           countryCode={countryCode}
         >
-          {(brand.logo_url || brand.description || brand.website_url) && (
-            <div className="flex flex-col md:flex-row items-start gap-4 md:gap-6 p-4 md:p-5 rounded-xl border border-line bg-surface/60">
+          {(brand.logo_url || brand.website_url) && (
+            <div className="flex items-center gap-4 md:gap-6 p-4 md:p-5 rounded-xl border border-line bg-surface/60">
               {brand.logo_url && (
-                <div className="w-20 h-20 md:w-24 md:h-24 relative rounded-xl overflow-hidden bg-white flex-shrink-0 border border-line/60">
+                <div className="w-16 h-16 md:w-20 md:h-20 relative rounded-xl overflow-hidden bg-white flex-shrink-0 border border-line/60">
                   <Image
                     src={brand.logo_url}
                     alt={brand.name}
                     fill
                     className="object-contain p-2"
-                    sizes="96px"
+                    sizes="80px"
                   />
                 </div>
               )}
-              <div className="flex-1 min-w-0">
-                {brand.description && (
-                  /* Authored in the admin rich editor, so it ships as HTML
-                     (headings, lists, links). Rendered through `prose` to
-                     keep that structure styled and readable. */
-                  <div
-                    className="prose prose-sm md:prose-base max-w-3xl text-ink/75 prose-headings:text-ink prose-a:text-primary"
-                    // eslint-disable-next-line react/no-danger
-                    dangerouslySetInnerHTML={{ __html: brand.description }}
-                  />
-                )}
-                {brand.website_url && (
+              {brand.website_url && (
+                <div>
                   <a
                     href={brand.website_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-2 text-[13px] font-medium text-primary hover:underline"
+                    className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline"
                   >
                     <i className="ph ph-globe text-[14px]" aria-hidden />
                     Visit official website
                   </a>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -453,6 +443,19 @@ export default async function SlugPage(props: Props) {
             </div>
           )}
         </StoreTemplate>
+
+        {/* Brand description from admin — rendered below products */}
+        {brand.description && (
+          <div className="container-anvogue pb-12">
+            <div className="border-t border-line pt-8 mt-4">
+              <div
+                className="prose prose-sm md:prose-base max-w-none text-ink/80 leading-relaxed prose-headings:text-ink prose-a:text-primary"
+                // eslint-disable-next-line react/no-danger
+                dangerouslySetInnerHTML={{ __html: brand.description }}
+              />
+            </div>
+          </div>
+        )}
       </>
     )
   }

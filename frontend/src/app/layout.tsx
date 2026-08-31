@@ -12,7 +12,7 @@ import { buildTheme, getFontHref } from "@lib/util/theme"
 import { CartDrawerProvider } from "@lib/context/cart-drawer-context"
 import { SiteSettingsProvider } from "@lib/context/site-settings-context"
 import { UserDataProvider } from "@lib/context/user-data-context"
-import { ClientPushPrompt, ClientChatWidget, ClientSmoothScroll, ClientWhatsappChannelWidget } from "./client-wrappers"
+import { ClientPushPrompt, ClientChatWidget, ClientWhatsappChannelWidget } from "./client-wrappers"
 
 // Anvogue body font, wired to the CSS variable used by tailwind.config.js
 // and globals.css so `font-sans` resolves to Instrument Sans everywhere.
@@ -182,7 +182,6 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
               <main className="relative">{props.children}</main>
             </SiteSettingsProvider>
           </CartDrawerProvider>
-          <ClientSmoothScroll />
           {/* Web Push — registers /sw.js and triggers the native browser
               permission prompt on first user gesture. No-op on iOS Safari
               (push not yet supported in non-PWA contexts). customerId is

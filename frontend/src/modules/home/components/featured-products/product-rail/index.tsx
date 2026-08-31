@@ -4,6 +4,7 @@ import {
   resolveProductCardAspectClass,
 } from "@lib/data/site-settings"
 import { PRODUCT_CARD_FIELDS } from "@lib/util/product-card-fields"
+import { sortByReleaseDesc } from "@lib/util/product"
 import { HttpTypes } from "@medusajs/types"
 
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
@@ -47,7 +48,9 @@ export default async function ProductRail({
       queryParams: {
         ...(category?.id ? { category_id: [category.id] } : {}),
         ...(collection?.id ? { collection_id: collection.id } : {}),
-        order: "-created_at", // Sort by newest
+        // Coarse pre-order only; the real "newest" ordering is by release
+        // date below, which the backend can't sort on (JSON metadata).
+        order: "-created_at",
         limit: safeLimit,
         // Light card fields — homepage rail doesn't need variant images/
         // metadata/tags (big payload cut on the most-visited page).
@@ -58,6 +61,10 @@ export default async function ProductRail({
   ])
 
   if (!pricedProducts?.length) return null
+
+  // Newest RELEASE first so upcoming / just-launched phones lead the rail,
+  // matching the ordering used on every archive page.
+  const rankedProducts = sortByReleaseDesc(pricedProducts as any[])
 
   const aspectClass = resolveProductCardAspectClass(settings)
 
@@ -83,7 +90,7 @@ export default async function ProductRail({
         </div>
 
         <ul className="grid grid-cols-2 xsmall:grid-cols-3 small:grid-cols-4 medium:grid-cols-6 large:grid-cols-8 gap-x-2 small:gap-x-3 gap-y-3 small:gap-y-6">
-          {pricedProducts.map((product, index) => (
+          {rankedProducts.map((product, index) => (
             <li key={product.id}>
               {/* First 5 cards are above the fold — eager-load their images
                   so the LCP image isn't lazy (PageSpeed: 1.4s load delay). */}

@@ -7,7 +7,6 @@ import { useUserData } from "@lib/context/user-data-context"
 
 const PushPromptInner = dynamic(() => import("@modules/push/push-prompt"), { ssr: false })
 const ChatWidgetInner = dynamic(() => import("@modules/chat-widget"), { ssr: false })
-const SmoothScrollInner = dynamic(() => import("@modules/common/components/smooth-scroll"), { ssr: false })
 const TopProgressInner = dynamic(() => import("@modules/common/components/top-progress-bar"), { ssr: false })
 const WhatsappChannelWidgetInner = dynamic(() => import("@modules/common/components/whatsapp-channel-widget"), { ssr: false })
 
@@ -151,10 +150,6 @@ export function ClientChatWidget({
       `}</style>
     </div>
   )
-}
-
-export function ClientSmoothScroll() {
-  return <SmoothScrollInner />
 }
 
 export function ClientWhatsappChannelWidget() {

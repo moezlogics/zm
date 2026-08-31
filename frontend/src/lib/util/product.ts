@@ -55,33 +55,81 @@ export function getImagesForVariant(product: any, selectedVariantId?: string) {
 }
 
 /**
- * Check if a product's launch/release date is in the future.
+ * Raw launch/release date a product was published with, if any.
+ *
+ * Editors fill this in the spec sheet, so it can live under either
+ * `release_date` or `launch_date`, and either inside `metadata.specs`
+ * or directly on `metadata`. All four are checked in the order the
+ * spec sheet writes them.
  */
-export function isProductUpcoming(product: any): boolean {
-  if (!product) return false
+export function getReleaseDateString(product: any): string | null {
+  if (!product) return null
   const specs = product.metadata?.specs
-  const releaseDateStr = specs?.release_date || product.metadata?.release_date || specs?.launch_date || product.metadata?.launch_date
-  if (!releaseDateStr) return false
+  const raw =
+    specs?.release_date ||
+    product.metadata?.release_date ||
+    specs?.launch_date ||
+    product.metadata?.launch_date
+  return raw ? String(raw).trim() : null
+}
 
-  const str = String(releaseDateStr).trim()
+/**
+ * Parse a spec-sheet date into a Date.
+ *
+ * The common shape is a plain "YYYY-MM-DD", which `new Date()` would read
+ * as UTC midnight and then shift backwards in western time zones — a
+ * product could appear to release a day early. Parsing the parts by hand
+ * pins it to local midnight so date-only comparisons behave.
+ */
+export function parseReleaseDate(raw: string | null | undefined): Date | null {
+  if (!raw) return null
+  const str = String(raw).trim()
+
   const parts = str.split("-")
   if (parts.length === 3) {
     const year = parseInt(parts[0], 10)
     const month = parseInt(parts[1], 10) - 1
     const day = parseInt(parts[2], 10)
     if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-      const dateValue = new Date(year, month, day)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      return dateValue > today
+      const d = new Date(year, month, day)
+      if (!isNaN(d.getTime())) return d
     }
   }
+
   const parsed = new Date(str)
-  if (!isNaN(parsed.getTime())) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return parsed > today
-  }
+  return isNaN(parsed.getTime()) ? null : parsed
+}
+
+/**
+ * Sort key used for "Latest" ordering across the whole storefront.
+ *
+ * Newest RELEASE first — what a phone catalogue actually means by "latest",
+ * and it puts not-yet-released models at the very top where shoppers look
+ * for them. `created_at` is only the fallback for the minority of products
+ * whose spec sheet has no release date, so they still sort sensibly instead
+ * of collapsing to the bottom in an arbitrary order.
+ */
+export function getReleaseTime(product: any): number {
+  const d = parseReleaseDate(getReleaseDateString(product))
+  if (d) return d.getTime()
+  const created = product?.created_at ? Date.parse(product.created_at) : NaN
+  return Number.isNaN(created) ? 0 : created
+}
+
+/** Newest release first. Returns a new array; input is left untouched. */
+export function sortByReleaseDesc<T>(products: T[]): T[] {
+  return [...products].sort((a, b) => getReleaseTime(b) - getReleaseTime(a))
+}
+
+/**
+ * Check if a product's launch/release date is in the future.
+ */
+export function isProductUpcoming(product: any): boolean {
+  const d = parseReleaseDate(getReleaseDateString(product))
+  if (!d) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return d > today
 }
 
 import { getProductPrice } from "./get-product-price"
@@ -199,4 +247,4 @@ export function getSameBrandProducts(
 
 
 
-
+

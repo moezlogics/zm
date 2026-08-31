@@ -4,16 +4,23 @@ import { getSiteSettings, resolveProductCardAspectClass } from "@lib/data/site-s
 import { PRODUCT_CARD_FIELDS } from "@lib/util/product-card-fields"
 import ProductPreview from "@modules/products/components/product-preview"
 import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
-import { isProductUpcoming } from "@lib/util/product"
+import { isProductUpcoming, getReleaseTime, sortByReleaseDesc } from "@lib/util/product"
 import ProductGridClient, { GridItemMeta } from "./product-grid-client"
 
 /**
- * ZMobile-specific scope limit. We pull up to 100 products for the active
- * archive/scope (brand, category, collection) on the server, and let the
- * client-side ProductGridClient handle sorting, pagination, and filter
- * queries without server-side dynamic bailing.
+ * How many products we pull for the active archive/scope (brand, category,
+ * collection) on the server. The client-side ProductGridClient then handles
+ * sorting, incremental reveal and filter queries without any server-side
+ * dynamic bailing.
+ *
+ * This is deliberately above the size of the whole catalogue rather than a
+ * page-sized slice: the grid loads infinitely, and — more importantly —
+ * "latest" is ordered by the release date held in each product's spec
+ * sheet, which the backend cannot sort on (it lives in a JSON metadata
+ * blob). Fetching a partial set would sort only that arbitrary slice, so a
+ * newly released phone could be missing from the top of its own archive.
  */
-const SCOPE_LIMIT = 100
+const SCOPE_LIMIT = 500
 
 type PaginatedProductsParams = {
   limit: number
@@ -82,7 +89,9 @@ export default async function PaginatedProducts({
     // Light card fields — drops variants.images/variants.metadata/tags
     // from the grid payload (cards never render them).
     fields: PRODUCT_CARD_FIELDS,
-    order: "created_at",
+    // Only a coarse pre-order — the real ordering is applied below, since
+    // release date lives in metadata and is not sortable server-side.
+    order: "-created_at",
   }
 
   if (collectionId) queryParams["collection_id"] = [collectionId]
@@ -124,16 +133,22 @@ export default async function PaginatedProducts({
     countryCode,
   })
 
-  const items: GridItemMeta[] = products.map((p: any) => ({
+  // Newest RELEASE first (spec-sheet date), so upcoming and just-launched
+  // models lead every archive. Done here rather than in the query because
+  // the backend cannot order by a nested metadata field.
+  const ordered = sortByReleaseDesc(products as any[])
+
+  const items: GridItemMeta[] = ordered.map((p: any) => ({
     id: p.id,
     price: cheapestPriceOf(p),
     inStock: isInStockFn(p),
     upcoming: isProductUpcoming(p),
     createdAt: p.created_at ?? null,
+    releaseAt: getReleaseTime(p),
     specs: (p.metadata?.specs || {}) as Record<string, unknown>,
   }))
 
-  const cards = products.map((p: any, index: number) => (
+  const cards = ordered.map((p: any, index: number) => (
     // Eager-load the first row's images (above the fold) so the listing
     // LCP image isn't lazy.
     <ProductPreview
