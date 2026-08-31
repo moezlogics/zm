@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import { ensureAdSenseLoaded, whenPageLoaded } from "@modules/analytics/adsense-loader"
+import { ADS_ENABLED } from "./lazy-google-ad"
 
 type GoogleAdProps = {
   slot?: string
@@ -24,6 +25,7 @@ export default function GoogleAd({
   minHeight = 90,
   className = "",
 }: GoogleAdProps) {
+  if (!ADS_ENABLED) return null
   const pathname = usePathname()
   const insRef = useRef<HTMLModElement | null>(null)
   const pushed = useRef(false)
