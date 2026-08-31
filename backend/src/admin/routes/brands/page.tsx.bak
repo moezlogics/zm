@@ -20,7 +20,6 @@ import {
 } from "../../lib/brands-sdk"
 import { uploadFile } from "../../lib/settings-sdk"
 import { A } from "../../lib/admin-theme"
-import RichEditor from "../../components/RichEditor"
 
 type EditState = Partial<AdminBrand> & { id?: string }
 
@@ -485,16 +484,14 @@ const Page = () => {
                   </Select.Content>
                 </Select>
               </Field>
-              <Field
-                label="Description"
-                help="Shown on the brand page. Supports headings, lists and links."
-              >
-                <RichEditor
+              <Field label="Description">
+                <Textarea
                   value={editing.description || ""}
-                  onChange={(html: string) =>
-                    setEditing({ ...editing, description: html })
+                  onChange={(e: any) =>
+                    setEditing({ ...editing, description: e.target.value })
                   }
-                  placeholder="Write about the brand — history, what they are known for, popular series..."
+                  rows={3}
+                  placeholder="Brief description of the brand..."
                 />
               </Field>
               <Field label="Website URL">

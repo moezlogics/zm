@@ -9,7 +9,6 @@ import { getSiteSettings } from "@lib/data/site-settings"
 import { listProducts } from "@lib/data/products"
 import { getBrandByPath, getBrandForProduct, listBrands } from "@lib/data/brands"
 import { canonicalUrl } from "@lib/util/seo-url"
-import { htmlToText } from "@lib/util/html-text"
 import { buildCategoryPath, buildCategoryChain } from "@lib/util/category-path"
 import { buildBrandPath, getBrandPath } from "@lib/util/brand-path"
 import { getImagesForVariant } from "@lib/util/product"
@@ -193,7 +192,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     const title = brand.seo_title || brand.name
     const description =
       brand.seo_description ||
-      htmlToText(brand.description, 160) ||
+      brand.description ||
       `Browse all ${brand.name} products at ${siteName}.`
     const url = canonicalUrl(getBrandPath(brand, []))
 
@@ -343,9 +342,7 @@ export default async function SlugPage(props: Props) {
       "@type": "Brand",
       name: brand.name,
       url: canonicalUrl(path),
-      ...(brand.description
-        ? { description: htmlToText(brand.description) }
-        : {}),
+      ...(brand.description ? { description: brand.description } : {}),
       ...(brand.logo_url ? { logo: brand.logo_url } : {}),
       ...(brand.website_url ? { sameAs: [brand.website_url] } : {}),
     }
@@ -395,14 +392,9 @@ export default async function SlugPage(props: Props) {
               )}
               <div className="flex-1 min-w-0">
                 {brand.description && (
-                  /* Authored in the admin rich editor, so it ships as HTML
-                     (headings, lists, links). Rendered through `prose` to
-                     keep that structure styled and readable. */
-                  <div
-                    className="prose prose-sm md:prose-base max-w-3xl text-ink/75 prose-headings:text-ink prose-a:text-primary"
-                    // eslint-disable-next-line react/no-danger
-                    dangerouslySetInnerHTML={{ __html: brand.description }}
-                  />
+                  <p className="text-sm md:text-[15px] leading-relaxed text-ink/75 max-w-3xl">
+                    {brand.description}
+                  </p>
                 )}
                 {brand.website_url && (
                   <a
