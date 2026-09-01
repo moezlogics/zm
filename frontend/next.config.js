@@ -85,13 +85,17 @@ const nextConfig = {
     // than the JPEG/PNG source and decodes everywhere; the tiny size
     // difference vs AVIF is irrelevant once Cloudflare caches the result.
     formats: ["image/webp"],
-    // Fewer candidate widths = fewer distinct resize jobs AND a higher CDN
-    // cache-hit rate (every extra width is another cold sharp job). Dropped
-    // only the huge 2048/3840 desktop-retina widths â€” pointless on a
-    // mobile-first store and the most expensive to encode. imageSizes is
-    // LEFT at Next's default so tiny icons (flags/avatars at 16-32px) stay
-    // crisp; the real CPU win is AVIF-drop + dropping 2048/3840.
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    // Every <Image> with a `vw` sizes hint emits a srcset candidate for
+    // EACH width in deviceSizes + imageSizes. Measured on the live home
+    // page that came to 107KB of srcset attributes — 24% of the whole HTML
+    // document — because 14 candidates were generated per image across 89
+    // images. Trimming near-duplicate widths (750/1200, and the tiny
+    // 16/48/96 steps) drops that to 9 candidates for no visible quality
+    // change: the gaps that remain are within a normal DPR step. It also
+    // means fewer distinct resize jobs on the origin and a higher CDN
+    // hit-rate, since every extra width is another cold sharp encode.
+    deviceSizes: [640, 828, 1080, 1920],
+    imageSizes: [32, 64, 128, 256, 384],
     minimumCacheTTL: 60 * 60 * 24 * 30,
     remotePatterns: [
       // This store's production CDN â€” explicit so optimization works even

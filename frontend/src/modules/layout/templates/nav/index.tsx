@@ -42,6 +42,13 @@ export default async function Nav() {
   const logoWidthDesktop = settings.site_logo_width_desktop ? parseInt(settings.site_logo_width_desktop, 10) : null
   const logoWidthMobile = settings.site_logo_width_mobile ? parseInt(settings.site_logo_width_mobile, 10) : null
 
+  // NOTE: the logo is deliberately NOT `priority`. It is rendered twice
+  // (mobile + desktop headers), so `priority` emitted TWO <link rel=preload>
+  // tags — measured as the only two image preloads on the home page — which
+  // spent the browser's early bandwidth on a small header mark while the
+  // real LCP candidate (hero banner / first product card) was left to load
+  // normally. The logo is a few KB from the same CDN and paints promptly
+  // without preloading.
   const Logo = ({ size = "md", isMobile = false, priority = false }: { size?: "sm" | "md" | "lg"; isMobile?: boolean; priority?: boolean }) => {
     const customWidth = isMobile ? (logoWidthMobile || 200) : (logoWidthDesktop || 250)
     const h = size === "sm" ? 36 : size === "lg" ? 40 : 32
@@ -104,7 +111,7 @@ export default async function Nav() {
             className="flex-1 flex items-center justify-center min-w-0 text-header-fg"
             data-testid="nav-store-link-mobile"
           >
-            <Logo size="sm" isMobile priority />
+            <Logo size="sm" isMobile />
           </LocalizedClientLink>
 
           <div className="w-12 h-12 flex items-center justify-center shrink-0">
@@ -127,7 +134,7 @@ export default async function Nav() {
               data-testid="nav-store-link"
               aria-label={siteName}
             >
-              <Logo size="md" priority />
+              <Logo size="md" />
             </LocalizedClientLink>
 
             {/* Center: primary nav with sweep-underline hover */}
