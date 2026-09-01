@@ -53,6 +53,70 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
   return btoa(s)
 }
 
+/**
+ * Does this existing subscription belong to `expected` (our VAPID key)?
+ *
+ * `options.applicationServerKey` is the raw key the subscription was
+ * created with. Browsers that don't expose it (older Safari) return
+ * null/undefined — we treat that as "assume it matches" rather than
+ * churning a subscription we cannot verify.
+ */
+function subscriptionUsesKey(
+  sub: PushSubscription,
+  expected: Uint8Array
+): boolean {
+  let actual: ArrayBuffer | null | undefined
+  try {
+    actual = sub.options?.applicationServerKey
+  } catch {
+    return true
+  }
+  if (!actual) return true
+
+  const a = new Uint8Array(actual)
+  if (a.length !== expected.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== expected[i]) return false
+  }
+  return true
+}
+
+/** Our one and only service worker script. */
+const OWN_SW_PATH = "/sw.js"
+
+/**
+ * Unregister every service worker on this origin except our own.
+ *
+ * Best-effort: a browser that refuses (or has no registrations) just
+ * leaves things as they are — subscribing still proceeds.
+ */
+async function removeForeignServiceWorkers(): Promise<void> {
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations()
+    await Promise.all(
+      regs.map(async (r) => {
+        const script =
+          r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || ""
+        if (!script) return
+        let path = script
+        try {
+          path = new URL(script).pathname
+        } catch {
+          /* keep the raw value */
+        }
+        if (path === OWN_SW_PATH) return
+        try {
+          await r.unregister()
+        } catch {
+          /* ignore — nothing we can do from here */
+        }
+      })
+    )
+  } catch {
+    /* getRegistrations unavailable — nothing to clean */
+  }
+}
+
 export type SubscribeOptions = {
   vapidPublicKey: string
   customerId?: string | null
@@ -71,7 +135,17 @@ export async function subscribeToPush({
   if (!isPushSupported()) return { status: "unsupported" }
 
   try {
-    // 1. Register the service worker
+    // 1. Register the service worker.
+    //
+    // First evict any OTHER worker registered on this origin. Only one
+    // service worker can control a scope, and a push subscription belongs
+    // to whichever registration created it — so a second push script (the
+    // site briefly shipped a third-party one at /firebase-messaging-sw.js)
+    // silently takes ownership of the subscription and our own messages
+    // are never delivered. Removing strays here makes a previously broken
+    // device recover on its next visit.
+    await removeForeignServiceWorkers()
+
     let reg: ServiceWorkerRegistration
     try {
       reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" })
@@ -85,12 +159,38 @@ export async function subscribeToPush({
       return { status: "denied" }
     }
 
-    // 3. Create the push subscription
+    // 3. Create the push subscription.
+    //
+    // A PushSubscription is permanently bound to the VAPID public key it
+    // was created with: the push service will only accept messages signed
+    // by the matching private key. So an EXISTING subscription cannot be
+    // reused blindly — if it was created under a different key (a second
+    // push script on the page, or our own keys having been rotated), every
+    // message we send to it is rejected and the user silently receives
+    // nothing, even though the row looks healthy in our database.
+    //
+    // Compare the stored key with ours and, on a mismatch, drop the old
+    // subscription and take a fresh one. This self-heals affected devices
+    // on their next visit instead of requiring the user to clear site data.
+    const wantedKey = urlBase64ToUint8Array(vapidPublicKey)
+
     let pushSub = await reg.pushManager.getSubscription()
+    if (pushSub && !subscriptionUsesKey(pushSub, wantedKey)) {
+      try {
+        await pushSub.unsubscribe()
+      } catch {
+        /* if it refuses to unsubscribe, subscribe() below will surface it */
+      }
+      pushSub = null
+    }
+
     if (!pushSub) {
       pushSub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        // `as BufferSource` — TS models Uint8Array as generic over its
+        // buffer type, which no longer matches the DOM's BufferSource
+        // union once the value is held in a const.
+        applicationServerKey: wantedKey as BufferSource,
       })
     }
 
