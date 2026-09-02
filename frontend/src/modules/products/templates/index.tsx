@@ -605,7 +605,16 @@ const ProductTemplate = async ({
           </div>
         </div>
 
-        {/* Desktop Layout (hidden lg:grid) */}
+        {/* Desktop Layout (hidden lg:grid)
+
+            The gallery column is CAPPED, not fractional. A fractional
+            column inherits the container width, and this store's theme
+            sets --container-width to 100%, so on a 1920px monitor the
+            gallery grew to ~900px — a phone photo rendered nearly a metre
+            tall, which is what made the page look wrong on desktop while
+            being fine on mobile. 430px is about as large as a phone render
+            stays meaningful; the info column takes whatever is left, so
+            the layout now looks the same at 1024px and at 2560px. */}
         {/* Gallery no longer gets the larger share. A phone photo gains
             nothing past a certain size, and on a wide/full-width
             container the old 1.15fr column blew the image up to ~1000px
@@ -613,7 +622,7 @@ const ProductTemplate = async ({
             column the edge keeps the image at a natural size and puts
             price/CTA/specs — what the shopper actually reads — in more
             room. */}
-        <div className="hidden lg:grid lg:grid-cols-[0.95fr_1fr] gap-3 lg:gap-5">
+        <div className="hidden lg:grid lg:grid-cols-[minmax(0,430px)_minmax(0,1fr)] gap-3 lg:gap-6 lg:items-start lg:max-w-[1180px]">
           {/* Gallery â€” left column */}
           <div className="w-full">
             {makeGalleryNode(false)}
