@@ -1,6 +1,6 @@
 "use client"
 
-const AD_CLIENT = "ca-pub-8616277671572207"
+const AD_CLIENT = "ca-pub-2571706004681433"
 
 let loadPromise: Promise<void> | null = null
 

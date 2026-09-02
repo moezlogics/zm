@@ -11,8 +11,8 @@ type GoogleAdProps = {
   className?: string
 }
 
-const AD_CLIENT = "ca-pub-8616277671572207"
-const DEFAULT_SLOT = "6428686902"
+const AD_CLIENT = "ca-pub-2571706004681433"
+const DEFAULT_SLOT = "4187566099"
 
 /**
  * AdSense slot — loads seamlessly with fallback:

@@ -8,7 +8,7 @@ import dynamic from "next/dynamic"
  * Set to `true` to enable ads across the entire site, or `false` to disable.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-export const ADS_ENABLED = false
+export const ADS_ENABLED = true
 
 const GoogleAd = dynamic(() => import("./index"), { ssr: false })
 
