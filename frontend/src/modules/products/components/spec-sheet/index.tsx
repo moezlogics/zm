@@ -118,10 +118,10 @@ export default function SpecSheet({
           {groups.map((g, idx) => (
             <React.Fragment key={g.name}>
               <section
-                className="flex flex-col border border-line/50 rounded-xl overflow-hidden bg-surface/5"
+                className="flex flex-col border border-line/50 rounded-xl overflow-hidden bg-white"
               >
                 {/* Group header */}
-                <div className="flex items-center gap-2 px-2.5 py-1.5 md:px-3.5 md:py-2 bg-surface/40 border-b border-line/55">
+                <div className="flex items-center gap-2 px-2.5 py-1.5 md:px-3.5 md:py-2 bg-white border-b border-line/55">
                   <i className={`ph-bold ${g.icon.startsWith("ph-") ? g.icon : "ph-" + g.icon} text-primary text-[18px] shrink-0`} aria-hidden />
                   <h3 className="text-[12.5px] md:text-[13px] font-extrabold text-black tracking-wide uppercase">
                     {g.name}
@@ -136,10 +136,10 @@ export default function SpecSheet({
                       id={`spec-row-${r.key}`}
                       className="flex flex-row items-start gap-3 md:gap-4 px-2.5 py-1 md:px-3.5 md:py-2.5 border-b border-line/20 last:border-b-0 hover:bg-surface/10 transition-colors scroll-mt-24"
                     >
-                      <dt className="w-[90px] md:w-[130px] shrink-0 text-[11px] md:text-[11px] text-black font-bold uppercase tracking-wider mt-0.5">
+                      <dt className="w-[90px] md:w-[130px] shrink-0 text-[11px] md:text-[11px] text-black/70 font-semibold uppercase tracking-wider mt-0.5">
                         {r.label}
                       </dt>
-                      <dd className="text-[13px] md:text-[13.5px] text-black font-bold text-left flex-1 min-w-0 break-words">
+                      <dd className="text-[13px] md:text-[13.5px] text-black font-medium text-left flex-1 min-w-0 break-words">
                         {r.value}
                       </dd>
                     </div>
@@ -170,9 +170,9 @@ export default function SpecSheet({
       )}
 
       {boxItems.length > 0 && (
-        <section className="flex flex-col border border-line/50 rounded-xl overflow-hidden bg-surface/5">
+        <section className="flex flex-col border border-line/50 rounded-xl overflow-hidden bg-white">
           {/* Group header */}
-          <div className="flex items-center gap-2 px-2.5 py-1.5 md:px-3.5 md:py-2 bg-surface/40 border-b border-line/55">
+          <div className="flex items-center gap-2 px-2.5 py-1.5 md:px-3.5 md:py-2 bg-white border-b border-line/55">
             <i className="ph-bold ph-package text-primary text-[18px] shrink-0" aria-hidden />
             <h3 className="text-[12.5px] md:text-[13px] font-extrabold text-black tracking-wide uppercase">
               What&apos;s in the Box

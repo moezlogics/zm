@@ -270,8 +270,8 @@ export default function ProductDescriptionTabs({
   const navBtnCls = (isActive: boolean) =>
     `relative px-4 py-2.5 text-[13.5px] whitespace-nowrap transition-colors ${
       isActive
-        ? "text-black font-extrabold"
-        : "text-black/70 hover:text-black font-bold"
+        ? "text-black font-bold"
+        : "text-black/70 hover:text-black font-medium"
     }`
 
   return (
@@ -320,7 +320,7 @@ export default function ProductDescriptionTabs({
             id="section-specs"
             className="pt-6 pb-8 scroll-mt-20"
           >
-            <h2 className="text-[15px] md:text-base font-extrabold text-black mb-4 flex items-center gap-2">
+            <h2 className="text-[15px] md:text-base font-bold text-black mb-4 flex items-center gap-2">
               <i className="ph-bold ph-list-dashes text-primary text-[18px]" aria-hidden />
               Specifications
             </h2>
@@ -342,13 +342,13 @@ export default function ProductDescriptionTabs({
             id="section-description"
             className="pt-6 pb-8 border-t border-line/50 scroll-mt-20"
           >
-            <h2 className="text-[15px] md:text-base font-extrabold text-black mb-4 flex items-center gap-2">
+            <h2 className="text-[15px] md:text-base font-bold text-black mb-4 flex items-center gap-2">
               <i className="ph-bold ph-article text-primary text-[18px]" aria-hidden />
               Description
             </h2>
             <div
               lang="en"
-              className="prose prose-sm max-w-none text-ink/80 leading-relaxed"
+              className="prose prose-sm max-w-none text-ink/80 leading-relaxed prose-strong:font-semibold prose-headings:font-semibold"
             >
               {englishHtml ? (
                 <div dangerouslySetInnerHTML={{ __html: englishHtml }} />
@@ -367,7 +367,7 @@ export default function ProductDescriptionTabs({
             className="pt-6 pb-8 border-t border-line/50 scroll-mt-20"
           >
             <h2
-              className="text-[15px] md:text-base font-extrabold text-black mb-4 flex items-center gap-2"
+              className="text-[15px] md:text-base font-bold text-black mb-4 flex items-center gap-2"
               lang="ur"
               dir="rtl"
             >
@@ -377,7 +377,7 @@ export default function ProductDescriptionTabs({
             <div
               lang="ur"
               dir="rtl"
-              className="prose prose-sm max-w-none text-ink/80 leading-loose font-[400] text-right"
+              className="prose prose-sm max-w-none text-ink/80 leading-loose font-[400] text-right prose-strong:font-semibold prose-headings:font-semibold"
             >
               <div dangerouslySetInnerHTML={{ __html: urduHtml! }} />
             </div>
@@ -390,7 +390,7 @@ export default function ProductDescriptionTabs({
           id="section-reviews"
           className="pt-6 pb-8 border-t border-line/50 scroll-mt-20"
         >
-          <h2 className="text-[15px] md:text-base font-extrabold text-black mb-4 flex items-center gap-2">
+          <h2 className="text-[15px] md:text-base font-bold text-black mb-4 flex items-center gap-2">
             <i className="ph-bold ph-star text-primary text-[18px]" aria-hidden />
             Reviews
             {typeof reviewCount === "number" && reviewCount > 0 && (
