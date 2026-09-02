@@ -622,7 +622,7 @@ const ProductTemplate = async ({
             column the edge keeps the image at a natural size and puts
             price/CTA/specs — what the shopper actually reads — in more
             room. */}
-        <div className="hidden lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-3 lg:gap-6 lg:items-start lg:max-w-[1120px]">
+        <div className="hidden lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-3 lg:gap-6 lg:items-start lg:max-w-[1040px]">
           {/* Gallery â€” left column */}
           <div className="w-full">
             {makeGalleryNode(false)}

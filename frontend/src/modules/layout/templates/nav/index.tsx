@@ -98,7 +98,13 @@ export default async function Nav() {
       />
 
       {/* === Mobile header â€” 64px main row, NO category bar === */}
-      <div className="small:hidden bg-header border-b border-header-line">
+      {/* The header deliberately carries no divider — no bottom border
+          and no shadow — so it reads as one surface with the page
+          instead of a bar sitting on top of it. The shadow used to be
+          hardcoded, which meant an operator who matched the border
+          colour to the background still saw a seam they could not
+          remove from the admin. */}
+      <div className="small:hidden bg-header">
         {/* Row 1 â€” hamburger Â· logo Â· search Â· cart (64px) */}
         <div className="px-2 h-16 flex items-center gap-1">
           <div className="w-12 h-12 flex items-center justify-center shrink-0">
@@ -121,7 +127,7 @@ export default async function Nav() {
       </div>
 
       {/* === Desktop header === */}
-      <div className="hidden small:block bg-header border-b border-header-line">
+      <div className="hidden small:block bg-header">
         <div className="container-anvogue h-[64px]">
           <nav
             className="flex items-center justify-between h-full gap-8"
