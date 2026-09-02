@@ -42,6 +42,7 @@ type Props = {
    * category (or its ancestors).
    */
   template?: SpecTemplate | null
+  adSlot?: React.ReactNode
   similarBudgetSlot?: React.ReactNode
   similarSpecsSlot?: React.ReactNode
   sameBrandSlot?: React.ReactNode
@@ -70,6 +71,7 @@ export default function ProductDescriptionTabs({
   reviewsSlot,
   reviewCount,
   template,
+  adSlot,
   similarBudgetSlot,
   similarSpecsSlot,
   sameBrandSlot,
@@ -328,6 +330,7 @@ export default function ProductDescriptionTabs({
               specs={specs}
               inTheBox={inTheBox}
               template={template}
+              adSlot={adSlot}
               similarBudgetSlot={similarBudgetSlot}
               similarSpecsSlot={similarSpecsSlot}
               sameBrandSlot={sameBrandSlot}

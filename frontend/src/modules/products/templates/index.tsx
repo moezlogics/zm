@@ -671,6 +671,7 @@ const ProductTemplate = async ({
           template={specTemplateResult?.template ?? null}
           productId={product.id}
           productTitle={product.title}
+          adSlot={<LazyGoogleAd />}
           similarBudgetSlot={renderInlineSection("Similar Price", similarBudget)}
           similarSpecsSlot={renderInlineSection("Similar Specs", similarSpecs)}
           sameBrandSlot={renderInlineSection(`More from ${brand?.name || "Brand"}`, sameBrand)}

@@ -27,6 +27,13 @@ type Props = {
    * legacy products that have no template.
    */
   template?: SpecTemplate | null
+  /**
+   * Ad unit rendered BETWEEN rows of the spec grid. The same node is
+   * placed at two depths so a long spec sheet — often the part of the
+   * page a shopper spends most time on — isn't a single unbroken block.
+   * Passed as a node (not a component) so this file stays ad-agnostic.
+   */
+  adSlot?: React.ReactNode
   similarBudgetSlot?: React.ReactNode
   similarSpecsSlot?: React.ReactNode
   sameBrandSlot?: React.ReactNode
@@ -78,6 +85,7 @@ export default function SpecSheet({
   inTheBox,
   title,
   template,
+  adSlot,
   similarBudgetSlot,
   similarSpecsSlot,
   sameBrandSlot,
@@ -146,6 +154,14 @@ export default function SpecSheet({
                   ))}
                 </dl>
               </section>
+
+              {/* Between spec-group rows. The grid is 2-up on desktop, so
+                  indexes 1 and 5 land after the first and third rows. Only
+                  fires when the sheet is actually long enough to need a
+                  break. */}
+              {adSlot && (idx === 1 || idx === 5) && groups.length > idx + 1 && (
+                <div className="col-span-1 md:col-span-2 my-2">{adSlot}</div>
+              )}
 
               {idx === budgetIndex && similarBudgetSlot && (
                 <div className="col-span-1 md:col-span-2 my-2">
