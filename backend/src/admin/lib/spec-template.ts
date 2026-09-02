@@ -225,6 +225,107 @@ export const SPEC_TEMPLATE_PRESETS: Record<
     },
   },
 
+  /**
+   * Feature / keypad phones.
+   *
+   * Deliberately much shorter than the smartphone template — a keypad
+   * phone simply has fewer specs, and padding the sheet with empty rows
+   * makes it look like data is missing. What replaces the smartphone
+   * spec race here is a different set of buying questions, which is what
+   * this template captures: how many SIMs, does it do 4G or only 2G, is
+   * the battery removable, does the torch and (wireless) FM work, and is
+   * it PTA approved. Those are the fields shoppers in this segment
+   * actually compare, so they are the ones marked highlight/filter.
+   *
+   * Keys are shared with "mobile-phone" wherever the meaning is the same
+   * (release_date, pta_approved, battery_capacity, display_size, colors,
+   * weight, dimensions…) so cross-category compare and the storefront
+   * filters keep working against one canonical key set.
+   */
+  "keypad-phone": {
+    label: "Keypad Phone",
+    description:
+      "Feature/button phones — SIM slots, network, battery life, torch, FM radio.",
+    template: {
+      groups: [
+        {
+          name: "Overview & Status",
+          icon: "ph-device-mobile",
+          fields: [
+            { key: "release_date", label: "Release Date", type: "text", highlight: true, placeholder: "e.g. March 2026" },
+            { key: "price_rs", label: "Price in Rs", type: "text", highlight: true, placeholder: "Calculated automatically" },
+            { key: "pta_approved", label: "PTA Approved", type: "boolean", highlight: true, is_filter: true },
+            { key: "form_factor", label: "Design", type: "select", options: ["Bar / Candybar", "Flip", "Slider"], is_filter: true, placeholder: "Bar / Candybar" },
+            { key: "network", label: "Network", type: "select", options: ["2G only", "3G", "4G LTE", "4G VoLTE"], highlight: true, is_filter: true, placeholder: "e.g. 4G VoLTE" },
+            { key: "sim_slots", label: "SIM Slots", type: "select", options: ["Single SIM", "Dual SIM", "Triple SIM", "Quad SIM"], highlight: true, is_filter: true, placeholder: "Dual SIM" },
+            { key: "colors", label: "Colors", type: "select", options: ["Black", "Blue", "Red", "Grey", "Gold", "Silver"], placeholder: "Black, Blue, Red" },
+          ],
+        },
+        {
+          name: "Display",
+          icon: "ph-monitor",
+          fields: [
+            { key: "display_size", label: "Display Size", type: "select", options: ['1.77 inches', '1.8 inches', '2.4 inches', '2.8 inches', '3.2 inches'], highlight: true, placeholder: "2.4 inches" },
+            { key: "display_technology", label: "Panel Technology", type: "select", options: ["TFT", "TFT LCD", "CSTN", "IPS LCD"], placeholder: "TFT LCD" },
+            { key: "display_resolution", label: "Resolution", type: "text", placeholder: "e.g. 240 x 320 pixels" },
+          ],
+        },
+        {
+          name: "Keypad & Usability",
+          icon: "ph-keyboard",
+          fields: [
+            { key: "keypad_type", label: "Keypad Type", type: "select", options: ["Alphanumeric (T9)", "Numeric", "QWERTY"], placeholder: "Alphanumeric (T9)" },
+            { key: "big_font_keys", label: "Big Font & Keys", type: "boolean" },
+            { key: "torch", label: "Torch / Flashlight", type: "boolean", highlight: true, is_filter: true },
+            { key: "languages", label: "Languages", type: "text", placeholder: "e.g. English, Urdu" },
+          ],
+        },
+        {
+          name: "Battery & Power",
+          icon: "ph-battery-full",
+          fields: [
+            { key: "battery_capacity", label: "Battery Capacity", type: "select", options: ["1000 mAh", "1200 mAh", "1450 mAh", "1800 mAh", "2500 mAh", "3000 mAh"], highlight: true, is_filter: true, placeholder: "1800 mAh" },
+            { key: "battery_removable", label: "Removable Battery", type: "boolean", highlight: true },
+            { key: "standby_time", label: "Standby Time", type: "text", placeholder: "e.g. Up to 15 days" },
+            { key: "talk_time", label: "Talk Time", type: "text", placeholder: "e.g. Up to 8 hours" },
+            { key: "charging_port", label: "Charging Port", type: "select", options: ["Micro-USB", "USB Type-C", "Pin Charger"], placeholder: "Micro-USB" },
+          ],
+        },
+        {
+          name: "Camera & Multimedia",
+          icon: "ph-camera",
+          fields: [
+            { key: "camera_main", label: "Camera", type: "select", options: ["No Camera", "VGA (0.3MP)", "1.3MP", "2MP", "5MP"], placeholder: "VGA (0.3MP)" },
+            { key: "fm_radio", label: "FM Radio", type: "boolean", highlight: true, is_filter: true },
+            { key: "wireless_fm", label: "Wireless FM (no earphones)", type: "boolean" },
+            { key: "mp3_player", label: "MP3 / Video Player", type: "boolean" },
+            { key: "3_5mm_headphone_jack", label: "3.5mm Headphone Jack", type: "boolean" },
+          ],
+        },
+        {
+          name: "Memory & Connectivity",
+          icon: "ph-database",
+          fields: [
+            { key: "memory", label: "RAM", type: "select", options: ["4 MB", "8 MB", "32 MB", "64 MB", "128 MB"], placeholder: "32 MB" },
+            { key: "storage", label: "Storage", type: "select", options: ["4 MB", "32 MB", "64 MB", "128 MB"], placeholder: "64 MB" },
+            { key: "expandable_storage", label: "Card Slot", type: "text", placeholder: "microSD, up to 32GB" },
+            { key: "bluetooth", label: "Bluetooth", type: "boolean" },
+            { key: "whatsapp_support", label: "WhatsApp Support", type: "boolean", is_filter: true },
+            { key: "call_recording", label: "Auto Call Recording", type: "boolean" },
+          ],
+        },
+        {
+          name: "Build",
+          icon: "ph-ruler",
+          fields: [
+            { key: "weight", label: "Weight", type: "text", placeholder: "e.g. 78 g" },
+            { key: "dimensions", label: "Dimensions", type: "text", placeholder: "e.g. 132 x 56 x 13 mm" },
+          ],
+        },
+      ],
+    },
+  },
+
   laptop: {
     label: "Laptop",
     description: "Notebooks & ultrabooks — CPU, RAM, SSD, GPU, display.",

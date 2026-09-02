@@ -233,7 +233,7 @@ export default function ProductGridClient({
         of {shownTotal} {shownTotal === 1 ? "product" : "products"}
       </p>
       <ul
-        className="grid grid-cols-2 xsmall:grid-cols-3 small:grid-cols-4 medium:grid-cols-6 large:grid-cols-8 gap-x-2 small:gap-x-3 gap-y-3 small:gap-y-6"
+        className="grid grid-cols-2 xsmall:grid-cols-3 small:grid-cols-6 medium:grid-cols-8 gap-x-2 small:gap-x-3 gap-y-3 small:gap-y-6"
         data-testid="products-list"
       >
         {view.visible.map((i) => (

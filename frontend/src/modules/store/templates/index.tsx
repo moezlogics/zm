@@ -290,7 +290,7 @@ const StoreTemplate = async ({
       {/* Body grid - Flex container showing brand sidebar on left, product grid on right */}
       <div className="flex gap-4 small:gap-6 -mx-4 small:mx-0">
         {/* Brands Sidebar - Sticky & scrollable vertical navigation */}
-        <aside className="w-[68px] small:w-[110px] flex-shrink-0 self-start sticky top-[56px] small:top-[64px] h-[calc(100vh-56px-44px)] small:h-[calc(100vh-64px)] overflow-y-auto z-30">
+        <aside className="w-[68px] small:w-[88px] flex-shrink-0 self-start sticky top-[56px] small:top-[64px] h-[calc(100vh-56px-44px)] small:h-[calc(100vh-64px)] overflow-y-auto z-30">
           <MobileBrandsSidebar brands={brandItems} />
         </aside>
 

@@ -279,7 +279,7 @@ const ProductTemplate = async ({
             {title}
           </h4>
         </div>
-        <ul className="grid grid-cols-4 medium:grid-cols-6 gap-2 md:gap-4">
+        <ul className="grid grid-cols-4 small:grid-cols-6 medium:grid-cols-8 gap-2 md:gap-4">
           {productsList.map((p, index) => (
             <li key={p.id} className={index >= 4 ? "hidden medium:block" : ""}>
               <ProductPreview region={region} product={p} aspectClass={aspectRatioClass} />
@@ -606,7 +606,14 @@ const ProductTemplate = async ({
         </div>
 
         {/* Desktop Layout (hidden lg:grid) */}
-        <div className="hidden lg:grid lg:grid-cols-[1.15fr_1fr] gap-3 lg:gap-4">
+        {/* Gallery no longer gets the larger share. A phone photo gains
+            nothing past a certain size, and on a wide/full-width
+            container the old 1.15fr column blew the image up to ~1000px
+            while the buy box sat cramped beside it. Giving the info
+            column the edge keeps the image at a natural size and puts
+            price/CTA/specs — what the shopper actually reads — in more
+            room. */}
+        <div className="hidden lg:grid lg:grid-cols-[0.95fr_1fr] gap-3 lg:gap-5">
           {/* Gallery â€” left column */}
           <div className="w-full">
             {makeGalleryNode(false)}

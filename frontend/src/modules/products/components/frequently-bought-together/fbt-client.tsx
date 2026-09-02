@@ -67,7 +67,7 @@ export default function FBTClient({
   return (
     <div>
       {/* Products grid — reuses the site's product card variant */}
-      <ul className="grid grid-cols-2 xsmall:grid-cols-3 small:grid-cols-4 medium:grid-cols-6 large:grid-cols-8 gap-x-2 small:gap-x-3 gap-y-3 small:gap-y-6">
+      <ul className="grid grid-cols-2 xsmall:grid-cols-3 small:grid-cols-6 medium:grid-cols-8 gap-x-2 small:gap-x-3 gap-y-3 small:gap-y-6">
         {products.map((product, idx) => {
           const isChecked = selected.has(product.id!)
           return (
