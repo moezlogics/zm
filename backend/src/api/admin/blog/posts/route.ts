@@ -59,10 +59,14 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       seo_title: body.seo_title || null,
       seo_description: body.seo_description || null,
       seo_keywords: body.seo_keywords || null,
-      author_id: body.author_id || null,
       categories: Array.isArray(body.category_ids)
         ? body.category_ids.map((id: string) => ({ id }))
         : [],
+      // Only send the FK when an author was actually picked. Passing
+      // `author_id: null` on every create makes the ORM resolve a
+      // belongsTo relation that isn't there, which is a needless failure
+      // mode for the common case of a post with no author.
+      ...(body.author_id ? { author_id: body.author_id } : {}),
     } as any,
   ])
 
