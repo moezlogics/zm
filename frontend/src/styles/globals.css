@@ -1366,3 +1366,22 @@ div:has(> select) {
 .prose [style*="text-align: right"] { text-align: right; }
 .prose [style*="text-align: left"] { text-align: left; }
 
+/* prose-table-scroll-guard
+   Editor-authored tables can be wider than a phone. Without this the table
+   pushes the whole article sideways and the page scrolls horizontally.
+   Letting the table itself scroll keeps the surrounding text at the correct
+   width; `max-content` stops it collapsing its columns to fit. */
+@media (max-width: 640px) {
+  .prose table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .prose table > tbody,
+  .prose table > thead {
+    display: table;
+    width: max-content;
+    min-width: 100%;
+  }
+}

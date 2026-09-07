@@ -26,9 +26,6 @@
     "test:unit": "TEST_TYPE=unit NODE_OPTIONS=--experimental-vm-modules jest --silent --runInBand --forceExit"
   },
   "dependencies": {
-    "pg": "^8.11.5",
-    "recharts": "^2.12.7",
-    "imurmurhash": "^0.1.4",
     "@ariakit/core": "^0.4.19",
     "@ariakit/react-core": "^0.4.25",
     "@medusajs/admin-sdk": "2.13.6",
@@ -42,14 +39,18 @@
     "@tiptap/extension-image": "^3.22.3",
     "@tiptap/extension-link": "^3.22.3",
     "@tiptap/extension-placeholder": "^3.22.3",
+    "@tiptap/extension-table": "^3.22.3",
     "@tiptap/extension-text-align": "^3.22.3",
     "@tiptap/extension-underline": "^3.22.3",
     "@tiptap/react": "^3.22.3",
     "@tiptap/starter-kit": "^3.22.3",
     "@variablevic/google-analytics-medusa": "^0.1.1",
     "glob": "^13.0.6",
+    "imurmurhash": "^0.1.4",
     "meilisearch": "^0.57.0",
     "nodemailer": "^8.0.5",
+    "pg": "^8.11.5",
+    "recharts": "^2.12.7",
     "uuid": "^14.0.0",
     "web-push": "^3.6.7"
   },

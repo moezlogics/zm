@@ -5,6 +5,7 @@ import Link from "@tiptap/extension-link"
 import Placeholder from "@tiptap/extension-placeholder"
 import Underline from "@tiptap/extension-underline"
 import TextAlign from "@tiptap/extension-text-align"
+import { TableKit } from "@tiptap/extension-table"
 import { useEffect, useRef } from "react"
 import { blogApi } from "../lib/sdk"
 import { A } from "../lib/admin-theme"
@@ -197,6 +198,67 @@ function Toolbar({ editor }: { editor: Editor | null }) {
           e.target.value = ""
         }}
       />
+      <ToolbarButton
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+            .run()
+        }
+        title="Insert table (3×3 with header)"
+      >
+        ▦ Table
+      </ToolbarButton>
+      {/* The row/column controls only make sense inside a table, so they
+          stay hidden until the cursor is in one — otherwise the toolbar is
+          a wall of buttons that do nothing. */}
+      {editor.isActive("table") && (
+        <>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().addColumnAfter().run()}
+            title="Add column"
+          >
+            +Col
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().deleteColumn().run()}
+            title="Delete column"
+          >
+            −Col
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+            title="Add row"
+          >
+            +Row
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().deleteRow().run()}
+            title="Delete row"
+          >
+            −Row
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().mergeOrSplit().run()}
+            title="Merge / split cells"
+          >
+            ⇹
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleHeaderRow().run()}
+            title="Toggle header row"
+          >
+            H-Row
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().deleteTable().run()}
+            title="Delete table"
+          >
+            🗑 Table
+          </ToolbarButton>
+        </>
+      )}
       <ToolbarButton onClick={() => editor.chain().focus().undo().run()}>
         ↶
       </ToolbarButton>
@@ -215,6 +277,12 @@ export default function RichEditor({ value, onChange, placeholder }: Props) {
       Image.configure({ inline: false, HTMLAttributes: { class: "blog-image" } }),
       Link.configure({ openOnClick: false, autolink: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      // Tables are NOT part of StarterKit — without this the editor simply
+      // drops any <table> in the HTML it is given, which is why pasted or
+      // previously-saved tables kept disappearing. TableKit bundles the
+      // table/row/cell/header nodes; `resizable` adds drag handles on the
+      // column borders.
+      TableKit.configure({ table: { resizable: true } }),
       Placeholder.configure({ placeholder: placeholder || "Start writing..." }),
     ],
     content: value || "",
@@ -256,6 +324,47 @@ export default function RichEditor({ value, onChange, placeholder }: Props) {
         .ProseMirror blockquote { border-left: 3px solid #d1d5db; padding-left: 1rem; color: #6b7280; }
         .ProseMirror pre { background: #111827; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; }
         .ProseMirror a { color: #2563eb; text-decoration: underline; }
+
+        /* Tables. ProseMirror needs the fixed layout + explicit cell
+           borders, otherwise an empty cell has no hit area and the column
+           resize handles have nothing to grab. */
+        .ProseMirror table {
+          border-collapse: collapse;
+          table-layout: fixed;
+          width: 100%;
+          margin: 1rem 0;
+          overflow: hidden;
+        }
+        .ProseMirror table td,
+        .ProseMirror table th {
+          border: 1px solid #d1d5db;
+          padding: 6px 10px;
+          vertical-align: top;
+          box-sizing: border-box;
+          position: relative;
+          min-width: 1em;
+        }
+        .ProseMirror table th {
+          background: #f3f4f6;
+          font-weight: 700;
+          text-align: left;
+        }
+        /* Selected cells while dragging a range */
+        .ProseMirror table .selectedCell:after {
+          content: "";
+          position: absolute; inset: 0;
+          background: rgba(37, 99, 235, 0.12);
+          pointer-events: none;
+        }
+        /* Drag handle shown on a column border when resizable is on */
+        .ProseMirror table .column-resize-handle {
+          position: absolute;
+          right: -2px; top: 0; bottom: -2px;
+          width: 4px;
+          background: #2563eb;
+          pointer-events: none;
+        }
+        .ProseMirror.resize-cursor { cursor: col-resize; }
       `}</style>
     </div>
   )
