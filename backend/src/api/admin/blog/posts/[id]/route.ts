@@ -16,6 +16,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
 export async function PATCH(req: MedusaRequest, res: MedusaResponse) {
   const blog: BlogModuleService = req.scope.resolve(BLOG_MODULE)
+  const logger = req.scope.resolve("logger") as any
   const { id } = req.params
   const body = (req.body || {}) as Record<string, any>
 
@@ -43,11 +44,45 @@ export async function PATCH(req: MedusaRequest, res: MedusaResponse) {
     update.published_at = new Date()
   }
 
-  if (Array.isArray(body.category_ids)) {
-    update.categories = body.category_ids.map((cid: string) => ({ id: cid }))
+  // Scalars first, relations second — same split as the create route, so a
+  // category-linking problem can never roll back an otherwise valid edit.
+  let post: any
+  try {
+    const [updated] = await blog.updateBlogPosts([update as any])
+    post = updated
+  } catch (e: any) {
+    const message = e?.message || String(e)
+    logger?.error?.(`[Blog] update post ${id} failed: ${message}`)
+    return res.status(500).json({
+      error: "Failed to update post",
+      message,
+      detail: e?.detail || e?.constraint || undefined,
+    })
   }
 
-  const [post] = await blog.updateBlogPosts([update as any])
+  if (Array.isArray(body.category_ids)) {
+    try {
+      const [withCats] = await blog.updateBlogPosts([
+        {
+          id,
+          categories: body.category_ids
+            .filter((c: any) => typeof c === "string" && c)
+            .map((cid: string) => ({ id: cid })),
+        } as any,
+      ])
+      post = withCats || post
+    } catch (e: any) {
+      logger?.warn?.(
+        `[Blog] post ${id} saved but category linking failed: ${e?.message || e}`
+      )
+      return res.json({
+        post,
+        warning: "Post saved, but categories could not be updated.",
+        message: e?.message || String(e),
+      })
+    }
+  }
+
   res.json({ post })
 }
 

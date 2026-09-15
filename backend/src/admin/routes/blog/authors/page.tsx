@@ -56,8 +56,9 @@ const AuthorsPage = () => {
   const load = async () => {
     setLoading(true)
     try {
-      const data = await blogApi.listAuthors()
-      setAuthors(data.authors || [])
+      // SDK fetch is generically typed; cast once at the boundary.
+      const data = (await blogApi.listAuthors()) as any
+      setAuthors(data?.authors || [])
     } finally {
       setLoading(false)
     }

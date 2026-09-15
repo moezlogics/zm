@@ -15,6 +15,26 @@ import RichEditor from "../../../../components/RichEditor"
 
 type Category = { id: string; name: string; handle: string }
 
+/**
+ * Pull something human out of a failed admin request.
+ *
+ * The Medusa SDK surfaces non-2xx responses as a generic
+ * "An unknown error occurred", which hides the reason the server actually
+ * gave. The API routes return `{ error, message, detail }`, so check those
+ * first and only fall back to the SDK's own text.
+ */
+function describeError(e: any): string {
+  const body = e?.response?.data ?? e?.body ?? e?.data
+  const parts = [body?.message, body?.detail, body?.error].filter(Boolean)
+  if (parts.length) return parts.join(" — ")
+  if (e?.message && e.message !== "An unknown error occurred") return e.message
+  try {
+    return JSON.stringify(body ?? e)
+  } catch {
+    return String(e)
+  }
+}
+
 const EditPostPage = () => {
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)
@@ -39,11 +59,14 @@ const EditPostPage = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [postData, catData, authorData] = await Promise.all([
+        // The admin SDK's fetch is generically typed, so the awaited
+        // tuple comes back as `unknown` — cast once here rather than at
+        // every property access below.
+        const [postData, catData, authorData] = (await Promise.all([
           blogApi.getPost(id!),
           blogApi.listCategories(),
           blogApi.listAuthors(),
-        ])
+        ])) as any[]
 
         const p = postData.post
         setTitle(p.title || "")
@@ -122,7 +145,7 @@ const EditPostPage = () => {
       })
       window.location.href = "/app/blog"
     } catch (e) {
-      alert("Failed to save: " + (e as Error).message)
+      alert("Failed to save: " + describeError(e))
     } finally {
       setSaving(false)
     }
