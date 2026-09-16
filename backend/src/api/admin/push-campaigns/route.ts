@@ -171,115 +171,250 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   }
 
 
-  // Fan out
-  const result = await sendPushBatch(
-    targets.map((t: any) => ({
-      id: t.id,
-      endpoint: t.endpoint,
-      p256dh: t.p256dh,
-      auth: t.auth,
-      // Carried through only so the delivery log can attribute the send
-      // to a customer; the push client itself ignores it.
-      customer_id: t.customer_id || null,
-    })),
-    payload
+  // Everything needed by the background job is resolved NOW, while the
+  // request scope is alive, and handed over explicitly.
+  let pg: any = null
+  try {
+    pg = req.scope.resolve("__pg_connection__")
+  } catch {
+    /* bulk updates fall back to the ORM */
+  }
+
+  const recipients = targets.map((t: any) => ({
+    id: t.id,
+    endpoint: t.endpoint,
+    p256dh: t.p256dh,
+    auth: t.auth,
+    // Carried through only so the delivery log can attribute the send to
+    // a customer; the push client itself ignores it.
+    customer_id: t.customer_id || null,
+  }))
+
+  // ── Respond immediately, send in the background ────────────────────
+  // Sending to ~20k subscribers takes minutes (a network round-trip per
+  // recipient, plus retries and bookkeeping). Doing it inside this request
+  // meant nginx/Cloudflare cut the connection long before it finished, so
+  // the admin saw a failure and the campaign never reached a final state.
+  // The campaign row is already persisted with status "sending"; the
+  // history table picks up the final numbers when the job completes.
+  res.status(202).json({
+    success: true,
+    queued: true,
+    campaign_id: campaign.id,
+    total_targeted: recipients.length,
+    status: "sending",
+    message:
+      "Campaign queued. Sending happens in the background - refresh the campaign history to see the result.",
+  })
+
+  runCampaign({ svc, logger, pg, campaign, recipients, payload }).catch(
+    async (e: any) => {
+      logger?.error?.(
+        `[PushCampaign ${campaign.id}] background send crashed: ${e?.message || e}`
+      )
+      try {
+        await (svc as any).updatePushCampaigns({
+          id: campaign.id,
+          status: "failed",
+          sent_at: new Date(),
+        })
+      } catch {
+        /* nothing more we can do */
+      }
+    }
   )
+}
+
+/** How many recipients to try before committing to the full send. */
+const CANARY_SIZE = 25
+/** Max ids per bulk UPDATE statement. */
+const SQL_CHUNK = 5000
+
+type Recipient = {
+  id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+  customer_id: string | null
+}
+
+async function runCampaign({
+  svc,
+  logger,
+  pg,
+  campaign,
+  recipients,
+  payload,
+}: {
+  svc: any
+  logger: any
+  pg: any
+  campaign: any
+  recipients: Recipient[]
+  payload: any
+}) {
+  const started = Date.now()
+
+  // ── Canary ─────────────────────────────────────────────────────────
+  // Try a small slice first. If NOT ONE of them is accepted, the problem
+  // is almost certainly systemic (VAPID credentials, JWT or server clock,
+  // network) rather than 25 individually dead subscriptions, so stop
+  // instead of hammering the push service tens of thousands of times.
+  const canary = recipients.slice(0, CANARY_SIZE)
+  const rest = recipients.slice(CANARY_SIZE)
+
+  const first = await sendPushBatch(canary, payload)
+  let result: any = first
+
+  const canaryDead =
+    first.total >= Math.min(CANARY_SIZE, recipients.length) && first.sent === 0
+
+  if (canaryDead && rest.length > 0) {
+    logger?.warn?.(
+      `[PushCampaign ${campaign.id}] canary: 0/${first.total} accepted, aborting full send. ` +
+        `breakdown=${JSON.stringify(first.failureBreakdown)}`
+    )
+  } else if (rest.length > 0) {
+    const second = await sendPushBatch(rest, payload)
+    result = mergeOutcomes(first, second)
+  }
 
   const now = new Date()
 
-  // ── Per-recipient delivery log ───────────────────────────────────
-  // One row per subscriber so the dashboard can answer "who got it and
-  // what went wrong", and so the SW's shown/click callbacks have a row
-  // to stamp. Written in chunks to keep the insert payload sane.
+  // ── Delivery log ───────────────────────────────────────────────────
   try {
-    const rows = result.results.map(({ sub, result: r }) => ({
+    const rows = result.results.map(({ sub, result: r }: any) => ({
       campaign_id: campaign.id,
       subscription_id: sub.id || null,
       endpoint: sub.endpoint,
-      customer_id: (sub as any).customer_id || null,
-      status: r.success ? "sent" : r.kind === "expired" ? "expired" : r.kind === "invalid" ? "invalid" : "failed",
+      customer_id: sub.customer_id || null,
+      status: r.success
+        ? "sent"
+        : r.kind === "expired"
+        ? "expired"
+        : r.kind === "invalid"
+        ? "invalid"
+        : "failed",
       status_code: r.statusCode ?? null,
-      // Truncated — some push services return a full HTML error page.
+      // Truncated: some push services return a full HTML error page.
       error: r.success ? null : String(r.error || "").slice(0, 500) || null,
       attempts: r.attempts ?? 1,
     }))
     for (let i = 0; i < rows.length; i += 500) {
-      await (svc as any).createPushDeliveries(rows.slice(i, i + 500))
+      await svc.createPushDeliveries(rows.slice(i, i + 500))
     }
-  } catch (e) {
+  } catch (e: any) {
     logger?.warn?.(
-      `[PushCampaign] Failed to write delivery log: ${(e as Error).message}`
+      `[PushCampaign ${campaign.id}] delivery log write failed: ${e?.message || e}`
     )
   }
 
-  // Stamp last_sent_at on everyone who actually received it. This column
-  // drives the "Last sent" dashboard field and dormant-subscriber
-  // segmentation; nothing used to write it, so it was always empty.
+  // ── Subscriber bookkeeping, only when the channel provably works ────
+  // A 403 means "rejected", but the push service returns it both for one
+  // subscription made under another key AND for every request when our own
+  // VAPID signature is bad. If nothing at all was delivered those two cases
+  // look identical, and deactivating on that signal wipes a perfectly good
+  // list, which is exactly how subscriber counts dropped after each send.
+  // So pruning and deactivation only happen once at least one message was
+  // accepted, which proves the credentials themselves are fine.
+  const channelWorks = result.sent > 0
+
   if (result.sentIds.length > 0) {
-    try {
-      await (svc as any).updatePushSubscriptions(
-        result.sentIds.map((id: string) => ({ id, last_sent_at: now }))
-      )
-    } catch (e) {
-      logger?.warn?.(
-        `[PushCampaign] Failed to stamp last_sent_at: ${(e as Error).message}`
-      )
-    }
+    await bulkUpdate(pg, svc, logger, campaign.id, "last_sent_at", result.sentIds,
+      `UPDATE push_subscription SET last_sent_at = ?, updated_at = now() WHERE id = ANY(?)`,
+      (id: string) => ({ id, last_sent_at: now }),
+      [now])
   }
 
-  // Dead endpoints (404/410) — remove them.
-  if (result.expiredIds.length > 0) {
-    try {
-      await (svc as any).deletePushSubscriptions(result.expiredIds)
-    } catch (e) {
-      logger?.warn?.(
-        `[PushCampaign] Failed to prune ${result.expiredIds.length} expired subs: ${(e as Error).message}`
-      )
-    }
+  if (channelWorks && result.expiredIds.length > 0) {
+    // Soft delete, matching Medusa's own deletePushSubscriptions.
+    await bulkUpdate(pg, svc, logger, campaign.id, "prune expired", result.expiredIds,
+      `UPDATE push_subscription SET deleted_at = now(), updated_at = now() WHERE id = ANY(?)`,
+      null,
+      [])
   }
 
-  // Permanently rejected (400/403/413 — usually a VAPID-key mismatch).
-  // Deactivate rather than delete: the row stays auditable, but it stops
-  // being targeted, which is what keeps every future campaign from
-  // re-failing against the same hopeless endpoints.
-  if (result.invalidIds.length > 0) {
-    try {
-      await (svc as any).updatePushSubscriptions(
-        result.invalidIds.map((id: string) => ({ id, is_active: false }))
-      )
-    } catch (e) {
-      logger?.warn?.(
-        `[PushCampaign] Failed to deactivate ${result.invalidIds.length} invalid subs: ${(e as Error).message}`
-      )
-    }
+  if (channelWorks && result.invalidIds.length > 0) {
+    await bulkUpdate(pg, svc, logger, campaign.id, "deactivate invalid", result.invalidIds,
+      `UPDATE push_subscription SET is_active = false, updated_at = now() WHERE id = ANY(?)`,
+      (id: string) => ({ id, is_active: false }),
+      [])
   }
 
-  if (result.failed > 0) {
-    logger?.info?.(
-      `[PushCampaign ${campaign.id}] sent=${result.sent} failed=${result.failed} ` +
-        `breakdown=${JSON.stringify(result.failureBreakdown)}`
+  if (!channelWorks && recipients.length > 0) {
+    logger?.warn?.(
+      `[PushCampaign ${campaign.id}] 0 delivered, subscribers left untouched. ` +
+        `This points to a server-side problem (VAPID keys or subject, server clock, ` +
+        `network) rather than dead subscriptions. breakdown=${JSON.stringify(result.failureBreakdown)}`
     )
   }
 
-  // Update campaign with final stats
-  await (svc as any).updatePushCampaigns({
+  await svc.updatePushCampaigns({
     id: campaign.id,
+    total_targeted: recipients.length,
     total_sent: result.sent,
-    total_failed: result.failed,
-    status: result.sent === 0 && result.total > 0 ? "failed" : "sent",
+    total_failed: recipients.length - result.sent,
+    status: result.sent === 0 && recipients.length > 0 ? "failed" : "sent",
     sent_at: now,
   })
 
-  res.json({
-    success: true,
-    campaign_id: campaign.id,
-    total_targeted: result.total,
-    total_sent: result.sent,
-    total_failed: result.failed,
-    expired_pruned: result.expiredIds.length,
-    deactivated_invalid: result.invalidIds.length,
-    // Surfaced so the admin can see WHY a send underperformed instead of
-    // just a failure count (e.g. "invalid:403" ⇒ VAPID keys were rotated).
-    failure_breakdown: result.failureBreakdown,
-  })
+  logger?.info?.(
+    `[PushCampaign ${campaign.id}] done in ${Math.round((Date.now() - started) / 1000)}s: ` +
+      `targeted=${recipients.length} attempted=${result.total} sent=${result.sent} ` +
+      `breakdown=${JSON.stringify(result.failureBreakdown)}`
+  )
+}
+
+function mergeOutcomes(a: any, b: any) {
+  const breakdown: Record<string, number> = { ...a.failureBreakdown }
+  for (const [k, v] of Object.entries(b.failureBreakdown as Record<string, number>)) {
+    breakdown[k] = (breakdown[k] || 0) + v
+  }
+  return {
+    total: a.total + b.total,
+    sent: a.sent + b.sent,
+    failed: a.failed + b.failed,
+    expiredIds: [...a.expiredIds, ...b.expiredIds],
+    invalidIds: [...a.invalidIds, ...b.invalidIds],
+    sentIds: [...a.sentIds, ...b.sentIds],
+    results: [...a.results, ...b.results],
+    failureBreakdown: breakdown,
+  }
+}
+
+/**
+ * Update many subscription rows at once.
+ *
+ * One SQL statement per 5k ids instead of the ORM's per-row updates; with
+ * tens of thousands of recipients the ORM path alone ran for minutes.
+ * Falls back to the ORM when the raw connection is not available.
+ */
+async function bulkUpdate(
+  pg: any,
+  svc: any,
+  logger: any,
+  campaignId: string,
+  label: string,
+  ids: string[],
+  sql: string,
+  ormRow: ((id: string) => Record<string, any>) | null,
+  leadingBindings: any[]
+) {
+  try {
+    if (pg) {
+      for (let i = 0; i < ids.length; i += SQL_CHUNK) {
+        await pg.raw(sql, [...leadingBindings, ids.slice(i, i + SQL_CHUNK)])
+      }
+      return
+    }
+    if (ormRow) {
+      await svc.updatePushSubscriptions(ids.map(ormRow))
+    } else {
+      await svc.deletePushSubscriptions(ids)
+    }
+  } catch (e: any) {
+    logger?.warn?.(
+      `[PushCampaign ${campaignId}] ${label} failed for ${ids.length} rows: ${e?.message || e}`
+    )
+  }
 }

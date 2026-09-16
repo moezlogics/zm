@@ -226,6 +226,36 @@ const Page = () => {
     refresh().finally(() => setLoading(false))
   }, [])
 
+  // Follow a background send until it finishes, refreshing the history so
+  // the row's numbers update live. Gives up after ~15 minutes.
+  const pollCampaign = (campaignId: string) => {
+    let tries = 0
+    const tick = async () => {
+      tries++
+      try {
+        const { campaigns } = await fetchCampaigns()
+        setHistory(campaigns)
+        const c = campaigns.find((x) => x.id === campaignId)
+        if (c && c.status !== "sending") {
+          if (c.total_sent > 0) {
+            toast.success(
+              `Campaign finished — ${c.total_sent}/${c.total_targeted} delivered`
+            )
+          } else {
+            toast.error(
+              `Campaign finished but 0 were delivered. Open it and check Delivery Diagnostics for the reason.`
+            )
+          }
+          return
+        }
+      } catch {
+        /* keep polling */
+      }
+      if (tries < 90) setTimeout(tick, 10_000)
+    }
+    setTimeout(tick, 5_000)
+  }
+
   // Load the delivery-log diagnostics whenever a campaign is opened.
   useEffect(() => {
     if (!selectedCampaign) {
@@ -335,11 +365,23 @@ const Page = () => {
     setBusy(true)
     try {
       const r = await sendCampaign(form, false)
-      toast.success(
-        `Campaign sent — ${r.total_sent}/${r.total_targeted} delivered (${r.total_failed} failed${r.expired_pruned ? `, ${r.expired_pruned} pruned` : ""})`
-      )
-      setForm(EMPTY_FORM)
-      await refresh()
+      if (r.queued) {
+        // The server now sends in the background (large lists take minutes
+        // and used to time out the request), so there are no final numbers
+        // yet. Poll the history until this campaign leaves "sending".
+        toast.success(
+          `Campaign queued for ${r.total_targeted} subscribers — sending in the background…`
+        )
+        setForm(EMPTY_FORM)
+        await refresh()
+        pollCampaign(r.campaign_id)
+      } else {
+        toast.success(
+          `Campaign sent — ${r.total_sent}/${r.total_targeted} delivered (${r.total_failed} failed${r.expired_pruned ? `, ${r.expired_pruned} pruned` : ""})`
+        )
+        setForm(EMPTY_FORM)
+        await refresh()
+      }
     } catch (e) {
       toast.error("Failed: " + (e as Error).message)
     } finally {
