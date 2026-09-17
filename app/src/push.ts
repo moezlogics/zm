@@ -48,19 +48,78 @@ export async function enablePush(): Promise<{ ok: boolean; message: string }> {
     return { ok: false, message: "Notification permission was not granted." }
   }
 
-  const reg = (await navigator.serviceWorker.ready) as ServiceWorkerRegistration
-
-  let sub = await reg.pushManager.getSubscription()
-  if (!sub) {
-    const { publicKey } = await getVapidKey()
-    sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey) as any,
-    })
-  }
-
+  const sub = await ensureSubscription()
   await registerPush(sub, navigator.userAgent.slice(0, 100))
   return { ok: true, message: "Notifications enabled on this device." }
+}
+
+/**
+ * Get this device's push subscription, creating it if needed.
+ *
+ * A subscription is permanently tied to the VAPID key it was created
+ * with. If the server's key has changed since, the old subscription
+ * looks fine locally but every push to it is rejected — so compare the
+ * stored key with the server's and resubscribe on a mismatch.
+ */
+async function ensureSubscription(): Promise<PushSubscription> {
+  const reg = (await navigator.serviceWorker.ready) as ServiceWorkerRegistration
+  const { publicKey } = await getVapidKey()
+  const wanted = urlBase64ToUint8Array(publicKey)
+
+  let sub = await reg.pushManager.getSubscription()
+  if (sub && !sameKey(sub, wanted)) {
+    try {
+      await sub.unsubscribe()
+    } catch {
+      /* subscribe() below will surface a real problem */
+    }
+    sub = null
+  }
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: wanted as any,
+    })
+  }
+  return sub
+}
+
+function sameKey(sub: PushSubscription, expected: Uint8Array): boolean {
+  let actual: ArrayBuffer | null | undefined
+  try {
+    actual = sub.options?.applicationServerKey
+  } catch {
+    return true
+  }
+  // Browsers that don't expose it: assume it matches rather than churn.
+  if (!actual) return true
+  const a = new Uint8Array(actual)
+  if (a.length !== expected.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== expected[i]) return false
+  return true
+}
+
+/**
+ * Silently make sure the server knows about THIS device. Call on every
+ * app start while logged in.
+ *
+ * Registration used to happen only once, at login, with any error
+ * swallowed. If that single call failed — or the browser later rotated
+ * the subscription — the device kept showing notifications as "on" while
+ * the server had no record of it, so no order alerts ever arrived.
+ * Re-registering is idempotent on the server (keyed by endpoint).
+ *
+ * Never prompts: it only acts when permission was already granted.
+ */
+export async function syncPushRegistration(): Promise<void> {
+  if (!pushSupported()) return
+  if (Notification.permission !== "granted") return
+  try {
+    const sub = await ensureSubscription()
+    await registerPush(sub, navigator.userAgent.slice(0, 100))
+  } catch (e) {
+    console.warn("[push] background re-registration failed:", e)
+  }
 }
 
 export async function disablePush(): Promise<void> {

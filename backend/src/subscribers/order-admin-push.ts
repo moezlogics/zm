@@ -1,25 +1,17 @@
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework"
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { PUSH_NOTIFICATIONS_MODULE } from "../modules/push-notifications"
-import PushNotificationsService from "../modules/push-notifications/service"
-import {
-  configureWebPush,
-  sendPushBatch,
-} from "../modules/push-notifications/lib/web-push-client"
+import { formatMoney, notifyAdmins } from "../modules/push-notifications/lib/admin-notify"
 
 /**
- * ADMIN push on a new order — MINIMAL + LOUD DIAGNOSTICS.
+ * ADMIN push on a new order.
  *
- * Uses console.log (NOT the framework logger) so the markers show up in
- * `pm2 logs` even if the logger's level is filtered to http-only — that's
- * why earlier the subscriber's firing was invisible in the logs.
- *
- * Runs only in MEDUSA_WORKER_MODE = worker | shared.
+ * Runs in MEDUSA_WORKER_MODE = shared | worker (this server runs shared).
+ * Delivery and logging live in `notifyAdmins`; this file only builds the
+ * message.
  */
 
-// Runs ONCE when Medusa loads this subscriber file at startup. If you do
-// NOT see this line right after `pm2 restart`, the file isn't deployed /
-// built / registered on the server.
+// Printed once when Medusa loads subscribers at startup. If this line is
+// missing from logs/medusa-out.log after a restart, the build on the
+// server doesn't contain this file.
 console.log("[AdminPush] ✅ MODULE LOADED — subscriber registered for order.placed")
 
 export default async function orderAdminPushHandler({
@@ -27,56 +19,63 @@ export default async function orderAdminPushHandler({
   container,
 }: SubscriberArgs<{ id: string }>) {
   const orderId = event.data?.id
-  // console.log so it's visible regardless of logger level.
   console.log(`[AdminPush] 🔔 order.placed FIRED — orderId=${orderId || "NONE"}`)
   if (!orderId) return
 
-  const cfg = configureWebPush()
-  if (!cfg.configured) {
-    console.log("[AdminPush] ⚠️ VAPID not configured — skipping")
-    return
-  }
-
-  const svc: PushNotificationsService = container.resolve(PUSH_NOTIFICATIONS_MODULE)
-
-  let subs: any[] = []
+  // Enrich the notification so the admin can triage from the lock screen.
+  // Any lookup failure falls back to a generic message — the push itself
+  // matters more than the details.
+  let title = "🛒 New order received"
+  let body = "A new order just came in — tap to view."
   try {
-    subs = await (svc as any).listAdminPushSubscriptions({ is_active: true }, { take: 200 })
-  } catch (e: any) {
-    console.log(`[AdminPush] ❌ listAdminPushSubscriptions failed: ${e?.message || e}`)
-    return
-  }
-  console.log(`[AdminPush] active admin devices = ${subs?.length || 0}`)
-  if (!subs?.length) return
+    const query = container.resolve("query") as any
+    const {
+      data: [order],
+    } = await query.graph({
+      entity: "order",
+      fields: [
+        "id",
+        "display_id",
+        "total",
+        "currency_code",
+        "email",
+        "shipping_address.first_name",
+        "shipping_address.last_name",
+        "items.title",
+        "items.quantity",
+      ],
+      filters: { id: orderId },
+    })
 
-  const payload = {
-    title: "🛒 New order received",
-    body: "A new order just came in — tap to view.",
-    url: `/orders/${orderId}`,
-    tag: `admin-order-${orderId}`,
-    data: { order_id: orderId },
-  }
+    if (order) {
+      const name = [order.shipping_address?.first_name, order.shipping_address?.last_name]
+        .filter(Boolean)
+        .join(" ")
+      const total = formatMoney(order.total, order.currency_code)
+      const items = order.items || []
+      const firstItem = items[0]?.title
+      const more = items.length > 1 ? ` +${items.length - 1} more` : ""
 
-  try {
-    const result = await sendPushBatch(
-      subs.map((s) => ({ id: s.id, endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth })),
-      payload
-    )
-
-    if (result.expiredIds.length) {
-      try {
-        await (svc as any).deleteAdminPushSubscriptions(result.expiredIds)
-      } catch {
-        /* ignore prune errors */
-      }
+      title = `🛒 New order${order.display_id ? ` #${order.display_id}` : ""}${total ? ` · ${total}` : ""}`
+      body = [name || order.email, firstItem ? `${firstItem}${more}` : null]
+        .filter(Boolean)
+        .join(" — ") || body
     }
-
-    console.log(
-      `[AdminPush] 📤 order=${orderId} sent=${result.sent}/${result.total} failed=${result.failed} pruned=${result.expiredIds.length}`
-    )
-  } catch (err: any) {
-    console.log(`[AdminPush] ❌ SEND FAILED order=${orderId} message=${err?.message || err}`)
+  } catch (e: any) {
+    console.log(`[AdminPush] order ${orderId}: details lookup failed (${e?.message || e}) — sending generic`)
   }
+
+  await notifyAdmins(
+    container,
+    {
+      title,
+      body,
+      url: `/orders/${orderId}`,
+      tag: `admin-order-${orderId}`,
+      data: { order_id: orderId, kind: "order.placed" },
+    },
+    `order.placed ${orderId}`
+  )
 }
 
 export const config: SubscriberConfig = {

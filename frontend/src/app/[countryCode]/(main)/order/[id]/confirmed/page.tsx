@@ -7,8 +7,8 @@ type Props = {
   params: Promise<{ id: string }>
 }
 export const metadata: Metadata = {
-  title: "Order Confirmed",
-  description: "Your purchase was successful.",
+  title: "Order Placed",
+  description: "We have received your order.",
   // Order confirmation pages are user-specific and short-lived — never index.
   robots: {
     index: false,

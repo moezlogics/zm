@@ -10,20 +10,22 @@ export const retrieveOrder = async (id: string) => {
     ...(await getAuthHeaders()),
   }
 
-  const next = {
-    ...(await getCacheOptions("orders")),
-  }
-
   return sdk.client
     .fetch<HttpTypes.StoreOrderResponse>(`/store/orders/${id}`, {
       method: "GET",
       query: {
+        // +metadata so the page can show a cancellation reason the store
+        // recorded on the order.
         fields:
-          "*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product",
+          "*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,+metadata",
       },
       headers,
-      next,
-      cache: "force-cache",
+      // Order status changes after checkout (confirmed, shipped, canceled)
+      // from the admin side, which never revalidates the shopper's cached
+      // copy. With force-cache a customer returning to this page kept
+      // seeing whatever status was cached at checkout, so it is fetched
+      // fresh every time.
+      cache: "no-store",
     })
     .then(({ order }) => order)
     .catch((err) => medusaError(err))

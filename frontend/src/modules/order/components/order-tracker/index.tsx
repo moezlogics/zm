@@ -6,41 +6,59 @@ type OrderTrackerProps = {
 }
 
 export default function OrderTracker({ order }: OrderTrackerProps) {
+  const fStatus = order.fulfillment_status as string | undefined
+  const pStatus = order.payment_status as string | undefined
+  const meta = ((order as any).metadata || {}) as Record<string, any>
+  const isCanceled = order.status === "canceled"
+
+  /**
+   * Where the order actually is, read from its real state.
+   *
+   * The old tracker marked "Order Confirmed" done and "Shipped Out" as the
+   * CURRENT step for every brand-new order, so a customer saw "shipped"
+   * seconds after checkout. A fresh order is waiting for the store to
+   * confirm it; each later stage only lights up once the order really
+   * reaches it.
+   *
+   *   0 awaiting confirmation — just placed
+   *   1 confirmed             — store marked it confirmed, or started
+   *                             fulfilling it, or captured payment
+   *   2 shipped               — handed to the courier
+   *   3 delivered
+   */
+  const stage = (() => {
+    if (order.status === "completed" || fStatus === "delivered" || fStatus === "partially_delivered") return 3
+    if (fStatus === "shipped" || fStatus === "partially_shipped") return 2
+    if (
+      fStatus === "fulfilled" ||
+      fStatus === "partially_fulfilled" ||
+      pStatus === "captured" ||
+      pStatus === "partially_captured" ||
+      meta.confirmed === true ||
+      meta.confirmed === "true"
+    ) {
+      return 1
+    }
+    return 0
+  })()
+
   const getStepStatus = (stepIndex: number): "completed" | "current" | "upcoming" | "canceled" => {
-    const isCanceled = order.status === "canceled"
     if (isCanceled) return "canceled"
-
-    const fStatus = order.fulfillment_status
-    const oStatus = order.status
-
-    if (stepIndex === 0) {
-      return "completed"
-    }
-
-    if (stepIndex === 1) {
-      if (fStatus === "fulfilled" || fStatus === "shipped" || oStatus === "completed") {
-        return "completed"
-      }
-      return "current"
-    }
-
-    if (stepIndex === 2) {
-      if (oStatus === "completed") {
-        return "completed"
-      }
-      if (fStatus === "fulfilled" || fStatus === "shipped") {
-        return "current"
-      }
-      return "upcoming"
-    }
-
+    if (stage === 3) return "completed"
+    if (stepIndex < stage) return "completed"
+    if (stepIndex === stage) return "current"
     return "upcoming"
   }
 
   const steps = [
     {
-      title: "Order Confirmed",
-      description: "We've received your order and are preparing it.",
+      title: "Awaiting Confirmation",
+      description: "We've received your order and will confirm it shortly.",
+      icon: "ph-bold ph-hourglass-medium",
+    },
+    {
+      title: "Confirmed",
+      description: "Your order is confirmed and being prepared.",
       icon: "ph-bold ph-receipt",
     },
     {
@@ -55,22 +73,27 @@ export default function OrderTracker({ order }: OrderTrackerProps) {
     },
   ]
 
+  // Reason the store recorded when canceling (order.metadata.cancel_reason),
+  // e.g. "This item went out of stock". Only shown when it was set.
+  const cancelReason =
+    typeof meta.cancel_reason === "string" && meta.cancel_reason.trim()
+      ? meta.cancel_reason.trim()
+      : null
+
   const getOverallStatusMessage = () => {
-    if (order.status === "canceled") return "Order Canceled"
-    if (order.status === "completed") return "Delivered"
-    if (order.fulfillment_status === "shipped" || order.fulfillment_status === "fulfilled") return "Shipped"
-    return "Processing"
+    if (isCanceled) return "Order Canceled"
+    return ["Awaiting Confirmation", "Confirmed", "Shipped", "Delivered"][stage]
   }
 
   const getStatusBadgeClass = () => {
-    if (order.status === "canceled") return "bg-danger/10 text-danger border border-danger/20"
-    if (order.status === "completed") return "bg-success/10 text-success border border-success/20"
-    if (order.fulfillment_status === "shipped" || order.fulfillment_status === "fulfilled") return "bg-info/10 text-info border border-info/20"
+    if (isCanceled) return "bg-danger/10 text-danger border border-danger/20"
+    if (stage === 3) return "bg-success/10 text-success border border-success/20"
+    if (stage >= 1) return "bg-info/10 text-info border border-info/20"
     return "bg-warning/10 text-warning border border-warning/20"
   }
 
-  const step1Status = getStepStatus(1)
-  const step2Status = getStepStatus(2)
+  // Share of the track between the first and last step that is filled.
+  const progressPct = isCanceled ? 0 : Math.round((stage / (steps.length - 1)) * 100)
 
   return (
     <div className="w-full space-y-4">
@@ -94,17 +117,27 @@ export default function OrderTracker({ order }: OrderTrackerProps) {
         </div>
       </div>
 
+      {isCanceled && cancelReason && (
+        <div className="flex items-start gap-3 p-4 rounded-2xl border border-danger/20 bg-danger/5">
+          <i className="ph-bold ph-warning-circle text-danger text-lg shrink-0 mt-0.5" aria-hidden />
+          <div className="text-sm">
+            <p className="font-semibold text-danger">This order was canceled</p>
+            <p className="text-ink/75 mt-0.5">{cancelReason}</p>
+          </div>
+        </div>
+      )}
+
       {/* Stepper Card */}
       <div className="p-6 sm:p-8 bg-surface border border-line/35 rounded-3xl shadow-sm relative overflow-hidden">
         {/* Desktop View (Horizontal) */}
         <div className="hidden md:flex items-start justify-between relative w-full pt-4 pb-2 z-10">
           {/* Background track line */}
-          <div className="absolute top-[28px] left-[16.67%] right-[16.67%] h-[3px] bg-line/25 -z-10 rounded-full">
+          <div className="absolute top-[28px] left-[12.5%] right-[12.5%] h-[3px] bg-line/25 -z-10 rounded-full">
             {/* Active progress fill line */}
             <div 
               className="h-full bg-gradient-to-r from-primary to-success rounded-full transition-all duration-700 ease-in-out" 
               style={{
-                width: step2Status === "completed" ? "100%" : step1Status === "completed" ? "50%" : "0%"
+                width: `${progressPct}%`
               }}
             />
           </div>
@@ -112,7 +145,7 @@ export default function OrderTracker({ order }: OrderTrackerProps) {
           {steps.map((step, idx) => {
             const status = getStepStatus(idx)
             return (
-              <div key={idx} className="flex flex-col items-center text-center w-1/3 px-2">
+              <div key={idx} className="flex flex-col items-center text-center w-1/4 px-2">
                 <div 
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 relative ${
                     status === "completed" 
@@ -153,7 +186,7 @@ export default function OrderTracker({ order }: OrderTrackerProps) {
             <div 
               className="w-full bg-gradient-to-b from-primary to-success transition-all duration-700 ease-in-out rounded-full" 
               style={{
-                height: step2Status === "completed" ? "100%" : step1Status === "completed" ? "50%" : "0%"
+                height: `${progressPct}%`
               }}
             />
           </div>

@@ -132,6 +132,10 @@ export type SiteSettings = {
   whatsapp_widget_enabled?: string
   whatsapp_buy_now_enabled?: string
   whatsapp_chatbot_enabled?: string
+  /** "true" while the whole catalogue is out of stock: order pages show
+   *  the order as received on first view and canceled (out of stock)
+   *  on any later view. Turn OFF as soon as stock returns. */
+  order_out_of_stock_mode?: string
   cart_drawer_enabled?: string
   cart_drawer_cross_sell_enabled?: string
   cart_drawer_cross_sell_count?: string

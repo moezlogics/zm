@@ -21,7 +21,15 @@ export default function Login() {
     try {
       await login(email.trim(), password)
       reload() // pull branding/theme now that we're authed
-      try { await enablePush() } catch {}
+      // Don't let a push problem block login, but don't hide it either —
+      // a silent failure here is how a device ended up "on" with no alerts.
+      // It is retried automatically on every app launch.
+      try {
+        const r = await enablePush()
+        if (!r.ok) console.warn("[push] not enabled at login:", r.message)
+      } catch (pushErr) {
+        console.warn("[push] registration at login failed:", pushErr)
+      }
       navigate("/dashboard", { replace: true })
     } catch (e: any) {
       if (e?.status === 429) {

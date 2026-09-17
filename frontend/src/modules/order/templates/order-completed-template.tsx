@@ -7,6 +7,8 @@ import PaymentDetails from "@modules/order/components/payment-details"
 import OrderMapDisplay from "@modules/order/components/order-map-display"
 import PurchaseTracker from "@modules/analytics/purchase-tracker"
 import OrderTracker from "@modules/order/components/order-tracker"
+import OrderStatusSwitch from "@modules/order/components/order-status-switch"
+import OrderCanceledCard from "@modules/order/components/order-canceled-card"
 import GuestOrderSync from "@modules/order/components/guest-order-sync"
 import CopyButton from "@modules/order/components/copy-button"
 import Thumbnail from "@modules/products/components/thumbnail"
@@ -30,11 +32,45 @@ export default async function OrderCompletedTemplate({
   const isOnboarding = cookies.get("_medusa_onboarding")?.value === "true"
   const meta = (order.metadata || {}) as Record<string, any>
 
+  // Temporary store-wide switch — see OrderStatusSwitch for the behaviour.
+  const outOfStockMode =
+    String((settings as any).order_out_of_stock_mode || "").trim().toLowerCase() === "true"
+
+  const successHero = (
+    <div className="w-full bg-surface border border-line/35 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col items-center text-center animate-enter">
+      <div className="relative flex items-center justify-center mb-4">
+        {/* Soft ambient success glow */}
+        <span className="absolute inline-flex h-16 w-16 rounded-full bg-success/10 animate-pulse" />
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-success to-emerald-500 flex items-center justify-center shadow-md shadow-success/20 z-10">
+          <svg className="w-7 h-7 text-white stroke-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={3} 
+              d="M5 13l4 4L19 7" 
+              className="animate-[draw_0.6s_ease-out_forwards_0.15s]" 
+              style={{ strokeDasharray: 50, strokeDashoffset: 50 }} 
+            />
+          </svg>
+        </div>
+      </div>
+      <h1
+        className="text-2xl md:text-3xl font-extrabold tracking-tight text-ink mb-2"
+        data-testid="order-complete-heading"
+      >
+        Order Placed!
+      </h1>
+      <p className="text-xs md:text-sm text-ink/50 max-w-sm leading-relaxed">
+        Thank you for shopping! We&apos;ve received your order and will confirm it shortly.
+      </p>
+    </div>
+  )
+
   return (
     <div className="py-8 md:py-16 min-h-[calc(100vh-64px)] bg-bg/40">
       <div className="max-w-6xl w-full mx-auto px-4 flex flex-col gap-6">
         {isOnboarding && <OnboardingCta orderId={order.id} />}
-        <PurchaseTracker order={order} />
+        {!outOfStockMode && <PurchaseTracker order={order} />}
         <GuestOrderSync orderId={order.id} />
 
         {/* ── Sleek CSS Animation definitions ── */}
@@ -46,34 +82,23 @@ export default async function OrderCompletedTemplate({
           }
         `}</style>
 
-        {/* ── Modern Success Card Header ── */}
-        <div className="w-full bg-surface border border-line/35 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col items-center text-center animate-enter">
-          <div className="relative flex items-center justify-center mb-4">
-            {/* Soft ambient success glow */}
-            <span className="absolute inline-flex h-16 w-16 rounded-full bg-success/10 animate-pulse" />
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-success to-emerald-500 flex items-center justify-center shadow-md shadow-success/20 z-10">
-              <svg className="w-7 h-7 text-white stroke-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={3} 
-                  d="M5 13l4 4L19 7" 
-                  className="animate-[draw_0.6s_ease-out_forwards_0.15s]" 
-                  style={{ strokeDasharray: 50, strokeDashoffset: 50 }} 
-                />
-              </svg>
-            </div>
-          </div>
-          <h1
-            className="text-2xl md:text-3xl font-extrabold tracking-tight text-ink mb-2"
-            data-testid="order-complete-heading"
-          >
-            Order Confirmed!
-          </h1>
-          <p className="text-xs md:text-sm text-ink/50 max-w-sm leading-relaxed">
-            Thank you for shopping! We have received your order and our dispatch team is already preparing it.
-          </p>
-        </div>
+        {/* ── Header: success, or out-of-stock in store-wide stock-out mode ── */}
+        {outOfStockMode ? (
+          <OrderStatusSwitch
+            orderId={order.id}
+            createdAt={order.created_at as any}
+            placeholderClassName="min-h-[280px]"
+            awaiting={successHero}
+            canceled={
+              <OrderCanceledCard
+                displayId={order.display_id}
+                paymentStatus={order.payment_status as any}
+              />
+            }
+          />
+        ) : (
+          successHero
+        )}
 
         {/* ── Two Column Layout Grid ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start" data-testid="order-complete-container">
@@ -82,7 +107,21 @@ export default async function OrderCompletedTemplate({
           <div className="lg:col-span-7 space-y-6">
             
             {/* Order Progress / Status Tracker */}
-            <OrderTracker order={order} />
+            {outOfStockMode ? (
+              <OrderStatusSwitch
+                orderId={order.id}
+                createdAt={order.created_at as any}
+                placeholderClassName="min-h-[220px]"
+                awaiting={<OrderTracker order={order} />}
+                canceled={
+                  <OrderTracker
+                    order={{ ...(order as any), status: "canceled" } as HttpTypes.StoreOrder}
+                  />
+                }
+              />
+            ) : (
+              <OrderTracker order={order} />
+            )}
 
             {/* Combined Shipping & Payment Card */}
             <div className="w-full bg-surface border border-line/35 rounded-3xl p-5 sm:p-6 shadow-sm space-y-6">
