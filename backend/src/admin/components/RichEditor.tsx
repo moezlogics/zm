@@ -5,6 +5,10 @@ import Link from "@tiptap/extension-link"
 import Placeholder from "@tiptap/extension-placeholder"
 import Underline from "@tiptap/extension-underline"
 import TextAlign from "@tiptap/extension-text-align"
+// Pinned to an exact version in package.json, not a caret range. Every
+// other @tiptap/* package is held at one version by the lockfile, and a
+// newer table extension imports helpers that older @tiptap/core does not
+// export — which fails the admin bundle, and with it the whole deploy.
 import { TableKit } from "@tiptap/extension-table"
 import { useEffect, useRef } from "react"
 import { blogApi } from "../lib/sdk"
