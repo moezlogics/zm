@@ -11,6 +11,10 @@ import {
 } from "@medusajs/ui"
 import { ChatBubbleLeftRight, CheckCircle, XCircle, CheckCircleSolid } from "@medusajs/icons"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../lib/draft-keeper"
+
 export const routeConfig = defineRouteConfig({
   label: "Reviews",
   icon: ChatBubbleLeftRight,

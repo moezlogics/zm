@@ -13,6 +13,10 @@ import { useParams } from "react-router-dom"
 import { blogApi } from "../../../../lib/sdk"
 import RichEditor from "../../../../components/RichEditor"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../../../lib/draft-keeper"
+
 type Category = { id: string; name: string; handle: string }
 
 /**

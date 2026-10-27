@@ -22,6 +22,10 @@ import { uploadFile } from "../../lib/settings-sdk"
 import { A } from "../../lib/admin-theme"
 import RichEditor from "../../components/RichEditor"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../lib/draft-keeper"
+
 type EditState = Partial<AdminBrand> & { id?: string }
 
 const emptyBrand = (nextOrder: number): EditState => ({

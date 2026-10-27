@@ -1,6 +1,6 @@
 {
-  "name": "Mobile Store",
-  "short_name": "Mobile Store",
+  "name": "Z Mobiles",
+  "short_name": "Z Mobiles",
   "description": "View orders, change status, and get instant alerts on new orders.",
   "start_url": "/",
   "scope": "/",

@@ -5,6 +5,10 @@ import { useEffect, useState } from "react"
 import { sdk } from "../../lib/sdk"
 import { A, adminSection, adminStickyHeader, adminDescription } from "../../lib/admin-theme"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../lib/draft-keeper"
+
 const PAGE_SIZE = 15
 
 export default function DateUpdatePage() {

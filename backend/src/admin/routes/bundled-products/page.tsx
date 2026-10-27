@@ -14,6 +14,10 @@ import { sdk } from "../../lib/sdk"
 import { Link } from "react-router-dom"
 import CreateBundledProduct from "../../components/create-bundled-product"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../lib/draft-keeper"
+
 type BundledProduct = {
   id: string
   title: string

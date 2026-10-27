@@ -2,6 +2,10 @@ import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { Container, Heading, Text } from "@medusajs/ui"
 import TopCategoryEditor from "../../components/top-category-editor"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../lib/draft-keeper"
+
 /**
  * Store Page editor — mirrors the Homepage editor, for the /store page.
  *

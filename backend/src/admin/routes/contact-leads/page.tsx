@@ -9,6 +9,10 @@ import {
 import { useEffect, useState } from "react"
 import { A } from "../../lib/admin-theme"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../lib/draft-keeper"
+
 type Lead = {
   id: string
   name: string

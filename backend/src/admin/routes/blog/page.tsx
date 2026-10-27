@@ -3,6 +3,10 @@ import { Container, Heading, Button, Table, Badge, Input } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 import { blogApi } from "../../lib/sdk"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../lib/draft-keeper"
+
 type Post = {
   id: string
   title: string

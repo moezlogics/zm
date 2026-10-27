@@ -5,6 +5,10 @@ import { fetchSettings, saveSettings } from "../../lib/settings-sdk"
 import TopCategoryEditor from "../../components/top-category-editor"
 import PageBuilderHeader from "../../components/page-builder-header"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../lib/draft-keeper"
+
 /**
  * Homepage Builder — Page-builder-style editor for the storefront homepage.
  *

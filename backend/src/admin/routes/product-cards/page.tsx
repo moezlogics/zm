@@ -10,6 +10,10 @@ import {
   type ProductCardVariantMeta,
 } from "../../lib/product-card-variants"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../lib/draft-keeper"
+
 /**
  * Sample product data used to render the preview cards. Using a
  * generic unsplash/placeholder image avoids coupling this admin page

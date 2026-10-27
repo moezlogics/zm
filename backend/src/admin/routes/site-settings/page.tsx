@@ -13,6 +13,10 @@ import { useEffect, useRef, useState } from "react"
 import { fetchSettings, saveSettings, uploadFile } from "../../lib/settings-sdk"
 import { A, adminSection, adminStickyHeader, adminSectionTitle, adminDescription, adminHelpText } from "../../lib/admin-theme"
 
+// Mirrors this page's fields so a dropped connection or an expired
+// session can't wipe what has been typed (lib/draft-keeper.ts).
+import "../../lib/draft-keeper"
+
 // All keys the storefront can read.
 const DEFAULT_KEYS = [
   "site_name",
