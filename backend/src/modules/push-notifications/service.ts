@@ -1,5 +1,6 @@
 import { MedusaService } from "@medusajs/framework/utils"
 import {
+  PushAutoLog,
   PushCampaign,
   PushDelivery,
   PushSubscription,
@@ -11,6 +12,7 @@ class PushNotificationsService extends MedusaService({
   PushCampaign,
   PushDelivery,
   AdminPushSubscription,
+  PushAutoLog,
 }) {}
 
 export default PushNotificationsService

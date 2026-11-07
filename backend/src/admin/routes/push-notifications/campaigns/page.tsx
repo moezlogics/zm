@@ -46,6 +46,10 @@ type Campaign = {
   status: "draft" | "sending" | "sent" | "failed"
   sent_at: string | null
   created_at: string
+  source?: string | null
+  product_id?: string | null
+  partition_index?: number | null
+  partitions_total?: number | null
 }
 
 
@@ -78,6 +82,7 @@ type Form = {
   filter_browsers: string[]
   filter_genders: string[]
   filter_customers_only: boolean
+  add_utm: boolean
 }
 
 const DEFAULT_ACTION_URL = "https://zmobiles.pk/"
@@ -96,6 +101,7 @@ const EMPTY_FORM: Form = {
   filter_browsers: [],
   filter_genders: [],
   filter_customers_only: false,
+  add_utm: true,
 }
 
 
@@ -161,6 +167,7 @@ async function sendCampaign(form: Form, dryRun = false) {
     filter_browsers: form.filter_browsers,
     filter_genders: form.filter_genders,
     filter_customers_only: form.filter_customers_only,
+    add_utm: form.add_utm,
     dry_run: dryRun,
   }
   const res = await fetch("/admin/push-campaigns", {
@@ -171,6 +178,40 @@ async function sendCampaign(form: Form, dryRun = false) {
   })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
+}
+
+type FetchedPage = {
+  title: string
+  body: string
+  image: string
+  url: string
+  site_name?: string
+  price?: string
+}
+
+/** Server reads the page (og/meta tags, product JSON-LD) and returns push copy. */
+async function fetchFromUrl(url: string): Promise<FetchedPage> {
+  const res = await fetch("/admin/push-campaigns/fetch-url", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json?.error || `Request failed (${res.status})`)
+  return json
+}
+
+/** The icon a push gets when none is set: Auto-push default, else site favicon. */
+async function fetchSiteIcon(): Promise<string> {
+  try {
+    const res = await fetch("/admin/site-settings", { credentials: "include" })
+    if (!res.ok) return ""
+    const s = (await res.json())?.settings || {}
+    return (s.push_default_icon_url || s.site_favicon_url || "").trim()
+  } catch {
+    return ""
+  }
 }
 
 async function sendTest(form: Form) {
@@ -208,6 +249,8 @@ const Page = () => {
   const [diag, setDiag] = useState<CampaignDiagnostics | null>(null)
   const [diagLoading, setDiagLoading] = useState(false)
   const iconRef = useRef<HTMLInputElement>(null)
+  const [siteIcon, setSiteIcon] = useState("")
+  const [fetching, setFetching] = useState(false)
 
   const imageRef = useRef<HTMLInputElement>(null)
 
@@ -228,7 +271,37 @@ const Page = () => {
 
   useEffect(() => {
     refresh().finally(() => setLoading(false))
+    fetchSiteIcon().then(setSiteIcon)
   }, [])
+
+  // Paste a link → title, body, image and the clean URL fill themselves in.
+  // Fields the admin already typed are only replaced when `overwrite`.
+  const onFetchUrl = async (overwrite = true) => {
+    const url = form.action_url.trim()
+    if (!url || url === DEFAULT_ACTION_URL) {
+      toast.error("Paste a page or product link in Action URL first")
+      return
+    }
+    setFetching(true)
+    try {
+      const r = await fetchFromUrl(url)
+      setForm((f) => ({
+        ...f,
+        title: overwrite || !f.title.trim() ? r.title || f.title : f.title,
+        body: overwrite || !f.body.trim() ? r.body || f.body : f.body,
+        image_url: overwrite || !f.image_url.trim() ? r.image || f.image_url : f.image_url,
+        action_url: r.url || f.action_url,
+      }))
+      toast.success(
+        `Filled from ${r.site_name || new URL(r.url || url).hostname}` +
+          (r.image ? "" : " (no image found on the page)")
+      )
+    } catch (e) {
+      toast.error("Couldn't fetch: " + (e as Error).message)
+    } finally {
+      setFetching(false)
+    }
+  }
 
   // Follow a background send until it finishes, refreshing the history so
   // the row's numbers update live. Gives up after ~15 minutes.
@@ -430,9 +503,14 @@ const Page = () => {
             Compose and send a rich-media push to your subscribers.
           </p>
         </div>
-        <a href="/app/push-notifications" style={{ textDecoration: "none" }}>
-          <Button variant="secondary">← Subscribers</Button>
-        </a>
+        <div style={{ display: "flex", gap: 8 }}>
+          <a href="/app/push-notifications/auto" style={{ textDecoration: "none" }}>
+            <Button variant="secondary">⚡ Auto Push</Button>
+          </a>
+          <a href="/app/push-notifications" style={{ textDecoration: "none" }}>
+            <Button variant="secondary">← Subscribers</Button>
+          </a>
+        </div>
       </div>
 
       <div
@@ -450,6 +528,54 @@ const Page = () => {
             <p style={adminDescription}>What subscribers will see.</p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
+              <Field label="Action URL">
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <Input
+                    placeholder="https://zmobiles.pk/samsung/galaxy-s25-ultra"
+                    value={form.action_url}
+                    onChange={(e) => setForm({ ...form, action_url: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        onFetchUrl(true)
+                      }
+                    }}
+                  />
+                  <Button variant="secondary" disabled={fetching} onClick={() => onFetchUrl(true)}>
+                    {fetching ? "Fetching…" : "⤓ Fetch"}
+                  </Button>
+                </div>
+                <p style={adminHelpText}>
+                  Paste any product, blog or page link and press Fetch — the title, description
+                  (first lines, with the price for products) and featured image fill in
+                  automatically. You can still edit them.
+                </p>
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 12,
+                    color: A.fg,
+                    cursor: "pointer",
+                    marginTop: 6,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.add_utm}
+                    onChange={(e) => setForm({ ...form, add_utm: e.target.checked })}
+                    style={{ accentColor: "rgb(var(--color-primary))" }}
+                  />
+                  <span>
+                    Add UTM tracking{" "}
+                    <span style={{ color: A.fgSubtle }}>
+                      (utm_source=push — visits and sales show up in Google Analytics)
+                    </span>
+                  </span>
+                </label>
+              </Field>
+
               <Field label="Title *">
                 <Input
                   placeholder="🎉 New arrivals just dropped"
@@ -469,17 +595,6 @@ const Page = () => {
                 <p style={adminHelpText}>{form.body.length}/200 characters</p>
               </Field>
 
-              <Field label="Action URL">
-                <Input
-                  placeholder="https://zmobiles.pk/collections/new-arrivals"
-                  value={form.action_url}
-                  onChange={(e) => setForm({ ...form, action_url: e.target.value })}
-                />
-                <p style={adminHelpText}>
-                  Where the user goes when the notification is clicked. Enter a complete URL (e.g. internal pages like https://zmobiles.pk/collections/new-arrivals or external sites like https://google.com).
-                </p>
-              </Field>
-
             </div>
           </div>
 
@@ -490,10 +605,10 @@ const Page = () => {
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 14 }}>
-              <Field label="Icon (96×96 or 192×192 recommended)">
+              <Field label="Icon (leave empty to use the site favicon)">
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <Input
-                    placeholder="https://…/icon.png"
+                    placeholder={siteIcon ? `Site favicon: ${siteIcon}` : "https://…/icon.png"}
                     value={form.icon_url}
                     onChange={(e) => setForm({ ...form, icon_url: e.target.value })}
                   />
@@ -511,9 +626,9 @@ const Page = () => {
                     Upload
                   </Button>
                 </div>
-                {form.icon_url && (
+                {(form.icon_url || siteIcon) && (
                   <img
-                    src={form.icon_url}
+                    src={form.icon_url || siteIcon}
                     alt=""
                     style={{
                       width: 56,
@@ -743,7 +858,7 @@ const Page = () => {
           <div style={adminSection}>
             <h3 style={adminSectionTitle}>Live Preview</h3>
             <p style={adminDescription}>How it appears in the user's notification tray.</p>
-            <NotificationPreview form={form} />
+            <NotificationPreview form={form} fallbackIcon={siteIcon} />
           </div>
 
           <div style={adminSection}>
@@ -793,9 +908,19 @@ const Page = () => {
                       <span style={{ fontWeight: 600, color: A.fg, fontSize: 13 }}>
                         {c.title}
                       </span>
-                      <Badge size="xsmall" color={STATUS_COLORS[c.status] || "grey"}>
-                        {c.status}
-                      </Badge>
+                      <span style={{ display: "inline-flex", gap: 4, flexShrink: 0 }}>
+                        {c.source === "auto" && (
+                          <Badge size="xsmall" color="purple">
+                            ⚡ Auto
+                            {c.partitions_total
+                              ? ` · group ${(c.partition_index ?? 0) + 1}/${c.partitions_total}`
+                              : ""}
+                          </Badge>
+                        )}
+                        <Badge size="xsmall" color={STATUS_COLORS[c.status] || "grey"}>
+                          {c.status}
+                        </Badge>
+                      </span>
                     </div>
                     <p
                       style={{
@@ -933,6 +1058,7 @@ const Page = () => {
                   </h4>
                   <div style={{ pointerEvents: "none" }}>
                     <NotificationPreview
+                      fallbackIcon={siteIcon}
                       form={{
                         title: selectedCampaign.title,
                         body: selectedCampaign.body,
@@ -947,6 +1073,7 @@ const Page = () => {
                         filter_browsers: [],
                         filter_genders: [],
                         filter_customers_only: false,
+                        add_utm: false,
                       }}
                     />
                   </div>
@@ -1486,7 +1613,8 @@ function FacetSelect({
   )
 }
 
-const NotificationPreview = ({ form }: { form: Form }) => {
+const NotificationPreview = ({ form, fallbackIcon = "" }: { form: Form; fallbackIcon?: string }) => {
+  const icon = form.icon_url || fallbackIcon
   const title = form.title || "Your notification title"
   const body = form.body || "Notification body text appears here."
   return (
@@ -1506,7 +1634,7 @@ const NotificationPreview = ({ form }: { form: Form }) => {
             width: 44,
             height: 44,
             borderRadius: 8,
-            background: form.icon_url ? `url(${form.icon_url}) center/cover` : "#9ca3af",
+            background: icon ? `#fff url(${icon}) center/contain no-repeat` : "#9ca3af",
             flexShrink: 0,
           }}
         />

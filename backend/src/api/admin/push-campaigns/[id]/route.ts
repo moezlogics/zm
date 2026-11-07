@@ -42,49 +42,45 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   }
 
   // The delivery log is the source of truth for this campaign's outcome.
-  const deliveries = await (svc as any).listPushDeliveries(
-    { campaign_id: id },
-    { take: 100_000 }
-  )
-
+  // Counted in SQL — the old version loaded up to 100k rows into Node.
+  const pg: any = req.scope.resolve("__pg_connection__")
+  const [agg, groups] = await Promise.all([
+    pg.raw(
+      `SELECT count(*)::int AS total,
+              count(*) FILTER (WHERE status = 'sent')::int AS accepted,
+              count(*) FILTER (WHERE status = 'failed')::int AS failed,
+              count(*) FILTER (WHERE status = 'expired')::int AS expired,
+              count(*) FILTER (WHERE status = 'invalid')::int AS invalid,
+              count(shown_at)::int AS shown,
+              count(clicked_at)::int AS clicked
+       FROM push_delivery WHERE campaign_id = ? AND deleted_at IS NULL`,
+      [id]
+    ),
+    pg.raw(
+      `SELECT status, status_code, count(*)::int AS count, max(error) AS sample_error
+       FROM push_delivery
+       WHERE campaign_id = ? AND deleted_at IS NULL AND status <> 'sent'
+       GROUP BY status, status_code ORDER BY count DESC`,
+      [id]
+    ),
+  ])
+  const a0 = agg?.rows?.[0] || {}
   const stats = {
-    total: deliveries.length,
-    accepted: 0, // handed to the push service successfully
-    shown: 0, // confirmed displayed on the device
-    clicked: 0,
-    failed: 0, // transient
-    expired: 0, // pruned
-    invalid: 0, // deactivated
+    total: Number(a0.total || 0),
+    accepted: Number(a0.accepted || 0), // handed to the push service successfully
+    shown: Number(a0.shown || 0), // confirmed displayed on the device
+    clicked: Number(a0.clicked || 0),
+    failed: Number(a0.failed || 0), // transient
+    expired: Number(a0.expired || 0), // pruned
+    invalid: Number(a0.invalid || 0), // deactivated
   }
-
-  const buckets: Record<
-    string,
-    { status: string; status_code: number | null; count: number; reason: string; sample_error?: string }
-  > = {}
-
-  for (const d of deliveries) {
-    if (d.status === "sent") stats.accepted++
-    else if (d.status === "failed") stats.failed++
-    else if (d.status === "expired") stats.expired++
-    else if (d.status === "invalid") stats.invalid++
-
-    if (d.shown_at) stats.shown++
-    if (d.clicked_at) stats.clicked++
-
-    if (d.status !== "sent") {
-      const key = `${d.status}:${d.status_code ?? "none"}`
-      if (!buckets[key]) {
-        buckets[key] = {
-          status: d.status,
-          status_code: d.status_code ?? null,
-          count: 0,
-          reason: REASONS[d.status] || "Unknown failure.",
-          sample_error: d.error || undefined,
-        }
-      }
-      buckets[key].count++
-    }
-  }
+  const failures = (groups?.rows || []).map((g: any) => ({
+    status: g.status,
+    status_code: g.status_code ?? null,
+    count: Number(g.count),
+    reason: REASONS[g.status] || "Unknown failure.",
+    sample_error: g.sample_error || undefined,
+  }))
 
   const denominator = stats.accepted || 1
   const rates = {
@@ -101,16 +97,21 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     campaign,
     stats,
     rates,
-    failures: Object.values(buckets).sort((a, b) => b.count - a.count),
+    failures,
   }
 
   if (q.include_recipients === "1" || q.include_recipients === "true") {
-    const limit = Math.min(parseInt(q.limit || "100", 10), 1000)
-    const offset = parseInt(q.offset || "0", 10)
-    let rows = deliveries
-    if (q.status) rows = rows.filter((d: any) => d.status === q.status)
-    payload.recipients = rows.slice(offset, offset + limit)
-    payload.recipients_count = rows.length
+    const limit = Math.min(parseInt(q.limit || "100", 10) || 100, 1000)
+    const offset = Math.max(0, parseInt(q.offset || "0", 10) || 0)
+    const filters: Record<string, any> = { campaign_id: id }
+    if (q.status) filters.status = String(q.status)
+    const [rows, count] = await (svc as any).listAndCountPushDeliveries(filters, {
+      take: limit,
+      skip: offset,
+      order: { created_at: "ASC" } as any,
+    })
+    payload.recipients = rows
+    payload.recipients_count = count
   }
 
   res.json(payload)

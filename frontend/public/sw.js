@@ -42,9 +42,13 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "Notification"
   const options = {
     body: payload.body || "",
+    // The backend always sends the site favicon (or the campaign's own
+    // icon); the local favicon is only a last resort.
     icon: payload.icon || "/favicon.ico",
     image: payload.image || undefined,
-    badge: payload.badge || payload.icon || "/favicon.ico",
+    // Android paints the badge as a white silhouette, so a full-colour
+    // icon turns into a white square — only use a badge when one is set.
+    badge: payload.badge || undefined,
     tag: payload.tag || undefined,
     // Stash the campaign id (when present) and backend URL so the click
     // handler can post engagement back without another round-trip.
@@ -63,9 +67,41 @@ self.addEventListener("push", (event) => {
     Promise.all([
       self.registration.showNotification(title, options),
       trackShow(options.data),
+      rememberBackend(options.data),
     ])
   )
 })
+
+/* Where to re-register a rotated subscription (see pushsubscriptionchange).
+   Kept in Cache Storage because a service worker has no localStorage. */
+const CONFIG_CACHE = "push-config-v1"
+const CONFIG_KEY = "/__push-config"
+
+async function rememberBackend(data) {
+  try {
+    if (!data || !data.backend_url) return
+    const cache = await caches.open(CONFIG_CACHE)
+    await cache.put(
+      CONFIG_KEY,
+      new Response(
+        JSON.stringify({ backend_url: data.backend_url, publishable_key: data.publishable_key || null }),
+        { headers: { "Content-Type": "application/json" } }
+      )
+    )
+  } catch (e) {
+    /* best-effort */
+  }
+}
+
+async function readBackend() {
+  try {
+    const cache = await caches.open(CONFIG_CACHE)
+    const res = await cache.match(CONFIG_KEY)
+    return res ? await res.json() : null
+  } catch (e) {
+    return null
+  }
+}
 
 /**
  * Best-effort shown/impression tracking. Calls the backend when a
@@ -171,8 +207,40 @@ self.addEventListener("notificationclick", (event) => {
 })
 
 self.addEventListener("pushsubscriptionchange", (event) => {
-  // Browser rotated the subscription. Re-subscribe with the saved
-  // VAPID public key (the page wires this back up on next visit).
-  // We don't auto-resubscribe here because the page knows the right
-  // backend URL and customer ID.
+  // The browser rotated (or expired) this subscription. Re-subscribe with
+  // the same server key and register the new endpoint right away, so the
+  // subscriber isn't lost until their next visit. The customer link is
+  // restored by the page on the next visit as before.
+  event.waitUntil(
+    (async () => {
+      try {
+        const old = event.oldSubscription
+        const key = old && old.options && old.options.applicationServerKey
+        let sub = event.newSubscription
+        if (!sub && key) {
+          sub = await self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: key,
+          })
+        }
+        if (!sub) return
+        const cfg = await readBackend()
+        if (!cfg || !cfg.backend_url) return
+        const json = sub.toJSON()
+        const headers = { "Content-Type": "application/json" }
+        if (cfg.publishable_key) headers["x-publishable-api-key"] = cfg.publishable_key
+        await fetch(cfg.backend_url.replace(/\/$/, "") + "/store/push-subscriptions", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            endpoint: json.endpoint,
+            keys: json.keys,
+            subscribe_source: "sw:pushsubscriptionchange",
+          }),
+        })
+      } catch (e) {
+        /* the page re-subscribes on the next visit */
+      }
+    })()
+  )
 })

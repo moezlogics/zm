@@ -76,6 +76,36 @@ export const PushCampaign = model.define("push_campaign", {
   total_shown: model.number().default(0),
   status: model.enum(["draft", "sending", "sent", "failed"]).default("draft"),
   sent_at: model.dateTime().nullable(),
+  // "manual" (composer) or "auto" (new-product auto push). Null = manual
+  // (campaigns sent before this column existed).
+  source: model.text().nullable(),
+  // Auto push only: which product, and which subscriber group of how many.
+  product_id: model.text().nullable(),
+  partition_index: model.number().nullable(),
+  partitions_total: model.number().nullable(),
+})
+
+/**
+ * One row per product the auto-push has decided about. The unique
+ * product_id makes "push each product once" hold even when the publish
+ * event fires several times or on several processes.
+ *
+ * status:
+ *   baseline — product was already published when auto push was switched
+ *              on; never pushed (so editing old products doesn't push)
+ *   sent     — pushed to group `partition_index` (campaign_id has the stats)
+ *   skipped  — not pushed; `reason` says why (cool-down, quiet hours, …)
+ *   failed   — the send itself failed
+ */
+export const PushAutoLog = model.define("push_auto_log", {
+  id: model.id({ prefix: "pauto" }).primaryKey(),
+  product_id: model.text().unique(),
+  product_title: model.text().nullable(),
+  status: model.enum(["baseline", "sent", "skipped", "failed"]).default("sent"),
+  reason: model.text().nullable(),
+  partition_index: model.number().nullable(),
+  partitions_total: model.number().nullable(),
+  campaign_id: model.text().nullable(),
 })
 
 /**

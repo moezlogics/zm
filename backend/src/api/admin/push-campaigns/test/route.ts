@@ -5,6 +5,10 @@ import {
   configureWebPush,
   sendPushTo,
 } from "../../../../modules/push-notifications/lib/web-push-client"
+import {
+  absoluteUrl,
+  getPushContext,
+} from "../../../../modules/push-notifications/lib/campaign-engine"
 
 /**
  * POST /admin/push-campaigns/test
@@ -45,6 +49,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return res.status(404).json({ error: "No active subscriptions found" })
   }
 
+  const ctx = await getPushContext(req.scope)
   const r = await sendPushTo(
     {
       id: target.id,
@@ -55,9 +60,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     {
       title,
       body: bodyText,
-      icon: body.icon_url || undefined,
-      image: body.image_url || undefined,
-      url: body.action_url || "/",
+      // Same defaults as a real campaign: the site favicon when no icon is set.
+      icon: body.icon_url ? absoluteUrl(String(body.icon_url), ctx.storefrontUrl) : ctx.defaultIcon,
+      image: body.image_url ? absoluteUrl(String(body.image_url), ctx.storefrontUrl) : undefined,
+      url: body.action_url ? absoluteUrl(String(body.action_url), ctx.storefrontUrl) : ctx.storefrontUrl + "/",
       tag: "admin-test",
     }
   )
